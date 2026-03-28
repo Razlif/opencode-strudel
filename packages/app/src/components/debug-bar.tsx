@@ -78,6 +78,7 @@ export function DebugBar() {
   const language = useLanguage()
   const location = useLocation()
   const routing = useIsRouting()
+  if (session(location.pathname)) return null
   const [state, setState] = createStore({
     cls: undefined as number | undefined,
     delay: undefined as number | undefined,

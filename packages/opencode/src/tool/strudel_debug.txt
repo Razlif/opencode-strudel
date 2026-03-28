@@ -1,0 +1,15 @@
+Use this tool to validate a Strudel program against the current Strudel Studio debug runtime.
+
+Use it when:
+- the snippet is more than trivial
+- you are unsure whether the code evaluates cleanly
+- the code may contain suspicious mini-notation or sample payloads
+- you are about to claim a snippet should work
+
+This tool checks:
+- Strudel evaluation/transpilation
+- whether the result is a queryable pattern
+- event output over a small arc
+- suspicious unparsed note or sound payloads
+
+Return to the user with concise guidance. Treat this tool as advisory only: browser playback in the Strudel panel remains the final truth.

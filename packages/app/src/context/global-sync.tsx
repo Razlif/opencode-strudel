@@ -36,6 +36,7 @@ import type { ProjectMeta } from "./global-sync/types"
 import { SESSION_RECENT_LIMIT } from "./global-sync/types"
 import { sanitizeProject } from "./global-sync/utils"
 import { formatServerError } from "@/utils/server-errors"
+import { directoryKey } from "@/utils/directory"
 
 type GlobalStore = {
   ready: boolean
@@ -276,7 +277,7 @@ function createGlobalSync() {
   }
 
   const unsub = globalSDK.event.listen((e) => {
-    const directory = e.name
+    const directory = directoryKey(e.name)
     const event = e.details
 
     if (directory === "global") {

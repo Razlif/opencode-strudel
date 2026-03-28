@@ -17,8 +17,22 @@ import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectory } from "./external-directory"
+import { appendFile } from "node:fs/promises"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
+
+async function trace(event: string, data: Record<string, unknown>) {
+  const file = path.join(Instance.directory, "tool-trace.jsonl")
+  const line = {
+    time: new Date().toISOString(),
+    tool: "edit",
+    event,
+    directory: Instance.directory,
+    worktree: Instance.worktree,
+    ...data,
+  }
+  await appendFile(file, JSON.stringify(line) + "\n", "utf8").catch(() => undefined)
+}
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -56,6 +70,12 @@ export const EditTool = Tool.define("edit", {
     let diff = ""
     let contentOld = ""
     let contentNew = ""
+    await trace("start", {
+      filePath,
+      replaceAll: !!params.replaceAll,
+      oldLength: params.oldString.length,
+      newLength: params.newString.length,
+    })
     await FileTime.withLock(filePath, async () => {
       if (params.oldString === "") {
         const existed = await Filesystem.exists(filePath)
@@ -71,11 +91,20 @@ export const EditTool = Tool.define("edit", {
           },
         })
         await Filesystem.write(filePath, params.newString)
+        await trace("write", {
+          filePath,
+          event: existed ? "change" : "add",
+          size: params.newString.length,
+        })
         await Bus.publish(File.Event.Edited, {
           file: filePath,
         })
         await Bus.publish(FileWatcher.Event.Updated, {
           file: filePath,
+          event: existed ? "change" : "add",
+        })
+        await trace("watcher.publish", {
+          filePath,
           event: existed ? "change" : "add",
         })
         await FileTime.read(ctx.sessionID, filePath)
@@ -108,11 +137,20 @@ export const EditTool = Tool.define("edit", {
       })
 
       await Filesystem.write(filePath, contentNew)
+      await trace("write", {
+        filePath,
+        event: "change",
+        size: contentNew.length,
+      })
       await Bus.publish(File.Event.Edited, {
         file: filePath,
       })
       await Bus.publish(FileWatcher.Event.Updated, {
         file: filePath,
+        event: "change",
+      })
+      await trace("watcher.publish", {
+        filePath,
         event: "change",
       })
       contentNew = await Filesystem.readText(filePath)

@@ -12,6 +12,9 @@ import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
 import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
+import { StrudelDebugTool } from "./strudel_debug"
+import { StrudelValidateSongContractTool } from "./strudel_validate_song_contract"
+import { StrudelVerifySamplesTool } from "./strudel_verify_samples"
 import type { Agent } from "../agent/agent"
 import { Tool } from "./tool"
 import { Instance } from "../project/instance"
@@ -117,6 +120,9 @@ export namespace ToolRegistry {
       WebSearchTool,
       CodeSearchTool,
       SkillTool,
+      StrudelDebugTool,
+      StrudelValidateSongContractTool,
+      StrudelVerifySamplesTool,
       ApplyPatchTool,
       ...(Flag.OPENCODE_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),

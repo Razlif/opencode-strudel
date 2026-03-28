@@ -77,12 +77,17 @@ function cacheThemeVariants(theme: DesktopTheme, themeId: string) {
 
 export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
   name: "Theme",
-  init: (props: { defaultTheme?: string; onThemeApplied?: (theme: DesktopTheme, mode: "light" | "dark") => void }) => {
+  init: (props: {
+    defaultTheme?: string
+    defaultColorScheme?: ColorScheme
+    onThemeApplied?: (theme: DesktopTheme, mode: "light" | "dark") => void
+  }) => {
+    const scheme = props.defaultColorScheme ?? "system"
     const [store, setStore] = createStore({
       themes: DEFAULT_THEMES as Record<string, DesktopTheme>,
       themeId: normalize(props.defaultTheme) ?? "oc-2",
-      colorScheme: "system" as ColorScheme,
-      mode: getSystemMode(),
+      colorScheme: scheme,
+      mode: scheme === "system" ? getSystemMode() : scheme,
       previewThemeId: null as string | null,
       previewScheme: null as ColorScheme | null,
     })

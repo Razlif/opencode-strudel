@@ -22,10 +22,41 @@ import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
+import { appendFile } from "node:fs/promises"
+import path from "node:path"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
   export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
+
+  async function trace(input: StreamInput, system: string[]) {
+    const file = path.join(Instance.directory, "prompt-trace.jsonl")
+    const payload = {
+      time: new Date().toISOString(),
+      directory: Instance.directory,
+      worktree: Instance.worktree,
+      projectID: Instance.project.id,
+      sessionID: input.sessionID,
+      agent: {
+        name: input.agent.name,
+        mode: input.agent.mode,
+        prompt: input.agent.prompt,
+      },
+      model: {
+        providerID: input.model.providerID,
+        modelID: input.model.id,
+      },
+      user: {
+        id: input.user.id,
+        system: input.user.system,
+        variant: input.user.variant,
+      },
+      injectedSystem: input.system,
+      resolvedSystem: system,
+      messages: input.messages,
+    }
+    await appendFile(file, JSON.stringify(payload) + "\n", "utf8").catch(() => undefined)
+  }
 
   export type StreamInput = {
     user: MessageV2.User
@@ -92,6 +123,8 @@ export namespace LLM {
       system.length = 0
       system.push(header, rest.join("\n"))
     }
+
+    await trace(input, system)
 
     const variant =
       !input.small && input.model.variants && input.user.variant ? input.model.variants[input.user.variant] : {}

@@ -3,6 +3,8 @@ import type { Prompt } from "@/context/prompt"
 
 let createPromptSubmit: typeof import("./submit").createPromptSubmit
 
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 const createdClients: string[] = []
 const createdSessions: string[] = []
 const enabledAutoAccept: Array<{ sessionID: string; directory: string }> = []
@@ -20,6 +22,7 @@ const storedSessions: Record<string, Array<{ id: string; title?: string }>> = {}
 const promoted: Array<{ directory: string; sessionID: string }> = []
 const sentShell: string[] = []
 const syncedDirectories: string[] = []
+const prompted: Array<{ directory: string; input: any }> = []
 
 let params: { id?: string } = {}
 let selected = "/repo/worktree-a"
@@ -45,7 +48,10 @@ const clientFor = (directory: string) => {
         return { data: undefined }
       },
       prompt: async () => ({ data: undefined }),
-      promptAsync: async () => ({ data: undefined }),
+      promptAsync: async (input: any) => {
+        prompted.push({ directory, input })
+        return { data: undefined }
+      },
       command: async () => ({ data: undefined }),
       abort: async () => ({ data: undefined }),
     },
@@ -210,6 +216,7 @@ beforeEach(() => {
   promoted.length = 0
   params = {}
   sentShell.length = 0
+  prompted.length = 0
   syncedDirectories.length = 0
   selected = "/repo/worktree-a"
   variant = undefined
@@ -342,5 +349,83 @@ describe("prompt submit worktree selection", () => {
 
     expect(storedSessions["/repo/worktree-a"]).toEqual([{ id: "session-1", title: "New session 1" }])
     expect(optimisticSeeded).toEqual([true])
+  })
+
+  test("injects canonical Strudel session context by default", async () => {
+    params = { id: "session-1" }
+
+    const submit = createPromptSubmit({
+      info: () => ({ id: "session-1" }),
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      autoAccept: () => false,
+      mode: () => "normal",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      onSubmit: () => undefined,
+    })
+
+    const event = { preventDefault: () => undefined } as unknown as Event
+
+    await submit.handleSubmit(event)
+    await tick()
+
+    expect(prompted).toHaveLength(1)
+    expect(prompted[0]?.input.system).toContain("Current Strudel session context:")
+    expect(prompted[0]?.input.system).toContain("- session_id: session-1")
+    expect(prompted[0]?.input.system).toContain("- canonical_song_path: songs/session-1.js")
+  })
+
+  test("injects live Strudel UI state when available", async () => {
+    params = { id: "session-1" }
+
+    const mod = await import("@/pages/session/strudel-session-context")
+    mod.setStrudelSessionContext("session-1", {
+      canonical_song_path: "songs/session-1.js",
+      focused_section: "section_chorus",
+      focused_card: "gm_pad_poly",
+      ui_surface: "canvas",
+      playback_state: "stopped",
+      status: "idle",
+      status_message: "Runtime ready",
+    })
+
+    const submit = createPromptSubmit({
+      info: () => ({ id: "session-1" }),
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      autoAccept: () => false,
+      mode: () => "normal",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      onSubmit: () => undefined,
+    })
+
+    const event = { preventDefault: () => undefined } as unknown as Event
+
+    await submit.handleSubmit(event)
+    await tick()
+
+    expect(prompted).toHaveLength(1)
+    expect(prompted[0]?.input.system).toContain("- focused_section: section_chorus")
+    expect(prompted[0]?.input.system).toContain("- focused_card: gm_pad_poly")
+    expect(prompted[0]?.input.system).toContain("- ui_surface: canvas")
+    expect(prompted[0]?.input.system).toContain("- playback_state: stopped")
+    expect(prompted[0]?.input.system).toContain("- ui_status: idle")
+    expect(prompted[0]?.input.system).toContain("- ui_status_message: Runtime ready")
+
+    mod.clearStrudelSessionContext("session-1")
   })
 })

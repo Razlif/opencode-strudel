@@ -7,6 +7,7 @@ import {
   createSessionTabs,
   focusTerminalById,
   getTabReorderIndex,
+  needsSessionSongTab,
 } from "./helpers"
 
 describe("createOpenReviewFile", () => {
@@ -156,5 +157,12 @@ describe("createSessionTabs", () => {
       expect(result.closableTab()).toBeUndefined()
       dispose()
     })
+  })
+})
+
+describe("needsSessionSongTab", () => {
+  test("opens canonical song tab only when missing", () => {
+    expect(needsSessionSongTab([], "file://songs/ses_1.js")).toBe(true)
+    expect(needsSessionSongTab(["file://songs/ses_1.js"], "file://songs/ses_1.js")).toBe(false)
   })
 })

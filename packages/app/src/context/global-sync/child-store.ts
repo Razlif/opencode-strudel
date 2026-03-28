@@ -1,6 +1,7 @@
 import { createRoot, getOwner, onCleanup, runWithOwner, type Owner } from "solid-js"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 import { Persist, persisted } from "@/utils/persist"
+import { directoryKey } from "@/utils/directory"
 import type { VcsInfo } from "@opencode-ai/sdk/v2/client"
 import {
   DIR_IDLE_TTL_MS,
@@ -33,18 +34,21 @@ export function createChildStoreManager(input: {
   const disposers = new Map<string, () => void>()
 
   const mark = (directory: string) => {
+    directory = directoryKey(directory)
     if (!directory) return
     lifecycle.set(directory, { lastAccessAt: Date.now() })
     runEviction(directory)
   }
 
   const pin = (directory: string) => {
+    directory = directoryKey(directory)
     if (!directory) return
     pins.set(directory, (pins.get(directory) ?? 0) + 1)
     mark(directory)
   }
 
   const unpin = (directory: string) => {
+    directory = directoryKey(directory)
     if (!directory) return
     const next = (pins.get(directory) ?? 0) - 1
     if (next > 0) {
@@ -55,7 +59,7 @@ export function createChildStoreManager(input: {
     runEviction()
   }
 
-  const pinned = (directory: string) => (pins.get(directory) ?? 0) > 0
+  const pinned = (directory: string) => (pins.get(directoryKey(directory)) ?? 0) > 0
 
   const pinForOwner = (directory: string) => {
     const current = getOwner()
@@ -78,6 +82,7 @@ export function createChildStoreManager(input: {
   }
 
   function disposeDirectory(directory: string) {
+    directory = directoryKey(directory)
     if (
       !canDisposeDirectory({
         directory,
@@ -122,6 +127,7 @@ export function createChildStoreManager(input: {
   }
 
   function ensureChild(directory: string) {
+    directory = directoryKey(directory)
     if (!directory) console.error("No directory provided")
     if (!children[directory]) {
       const vcs = runWithOwner(input.owner, () =>
@@ -217,6 +223,7 @@ export function createChildStoreManager(input: {
   }
 
   function child(directory: string, options: ChildOptions = {}) {
+    directory = directoryKey(directory)
     const childStore = ensureChild(directory)
     pinForOwner(directory)
     const shouldBootstrap = options.bootstrap ?? true
@@ -227,6 +234,7 @@ export function createChildStoreManager(input: {
   }
 
   function projectMeta(directory: string, patch: ProjectMeta) {
+    directory = directoryKey(directory)
     const [store, setStore] = ensureChild(directory)
     const cached = metaCache.get(directory)
     if (!cached) return
@@ -244,6 +252,7 @@ export function createChildStoreManager(input: {
   }
 
   function projectIcon(directory: string, value: string | undefined) {
+    directory = directoryKey(directory)
     const [store, setStore] = ensureChild(directory)
     const cached = iconCache.get(directory)
     if (!cached) return

@@ -135,6 +135,8 @@ export function AppBaseProviders(props: ParentProps) {
     <MetaProvider>
       <Font />
       <ThemeProvider
+        defaultTheme="catppuccin"
+        defaultColorScheme="dark"
         onThemeApplied={(_, mode) => {
           void window.api?.setTitlebar?.({ mode })
         }}

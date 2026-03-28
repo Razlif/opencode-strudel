@@ -18,6 +18,8 @@ import { Worktree as WorktreeState } from "@/utils/worktree"
 import { buildRequestParts } from "./build-request-parts"
 import { setCursorPosition } from "./editor-dom"
 import { formatServerError } from "@/utils/server-errors"
+import { song as songPath } from "@/pages/session/strudel-song"
+import { getStrudelSessionContext } from "@/pages/session/strudel-session-context"
 
 type PendingPrompt = {
   abort: AbortController
@@ -34,6 +36,7 @@ export type FollowupDraft = {
   agent: string
   model: { providerID: string; modelID: string }
   variant?: string
+  system?: string
 }
 
 type FollowupSendInput = {
@@ -155,6 +158,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
       model: input.draft.model,
       messageID,
       parts: requestParts,
+      system: input.draft.system,
       variant: input.draft.variant,
     })
     return true
@@ -215,6 +219,25 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     }
     if (err instanceof Error) return err.message
     return language.t("common.requestFailed")
+  }
+
+  const system = (sessionID: string) => {
+    const value = getStrudelSessionContext(sessionID)
+    const lines = [
+      "Current Strudel session context:",
+      "",
+      `- session_id: ${sessionID}`,
+      `- canonical_song_path: ${value?.canonical_song_path ?? songPath(sessionID)}`,
+      "- When the user refers to the current song, section, chorus, verse, tracks, cards, or project music state, they are referring to this canonical song file.",
+      "- Read and edit that file directly instead of guessing the active song by scanning the repo.",
+    ]
+    if (value?.focused_section) lines.push(`- focused_section: ${value.focused_section}`)
+    if (value?.focused_card) lines.push(`- focused_card: ${value.focused_card}`)
+    if (value?.ui_surface) lines.push(`- ui_surface: ${value.ui_surface}`)
+    if (value?.playback_state) lines.push(`- playback_state: ${value.playback_state}`)
+    if (value?.status) lines.push(`- ui_status: ${value.status}`)
+    if (value?.status_message) lines.push(`- ui_status_message: ${value.status_message}`)
+    return lines.join("\n")
   }
 
   const abort = async () => {
@@ -398,6 +421,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       agent,
       model,
       variant,
+      system: system(session.id),
     }
 
     const clearInput = () => {

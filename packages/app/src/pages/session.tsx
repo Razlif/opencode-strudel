@@ -7,6 +7,7 @@ import {
   Match,
   Switch,
   createMemo,
+  createSignal,
   createEffect,
   createComputed,
   on,
@@ -40,12 +41,14 @@ import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
 import { type FollowupDraft, sendFollowupDraft } from "@/components/prompt-input/submit"
 import { createSessionComposerState, SessionComposerRegion } from "@/pages/session/composer"
-import { createOpenReviewFile, createSessionTabs, createSizing, focusTerminalById } from "@/pages/session/helpers"
+import { createOpenReviewFile, createSessionTabs, createSizing, focusTerminalById, needsSessionSongTab } from "@/pages/session/helpers"
 import { MessageTimeline } from "@/pages/session/message-timeline"
 import { type DiffStyle, SessionReviewTab, type SessionReviewTabProps } from "@/pages/session/review-tab"
 import { useSessionLayout } from "@/pages/session/session-layout"
+import { StrudelBar } from "@/pages/session/strudel-bar"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
+import { tab as strudelSongTab } from "@/pages/session/strudel-song"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
@@ -382,15 +385,30 @@ export default function Page() {
 
   const isDesktop = createMediaQuery("(min-width: 768px)")
   const size = createSizing()
+  const chatMin = 320
+  const [rail, setRail] = createSignal(640)
+  const [side, setSide] = createSignal<"files" | "strudel">("strudel")
+  const [strudelTab, setStrudelTab] = createSignal<"canvas" | "console">("canvas")
+  const [strudelBrowse, setStrudelBrowse] = createSignal(true)
+  const [strudelState, setStrudelState] = createSignal("idle")
+  const [strudelReady, setStrudelReady] = createSignal(false)
+  const [strudelMsg, setStrudelMsg] = createSignal("")
+  const desktopWorkspace = createMemo(() => !!params.id && isDesktop())
   const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
   const desktopFileTreeOpen = createMemo(() => isDesktop() && layout.fileTree.opened())
   const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
   const sessionPanelWidth = createMemo(() => {
+    if (desktopWorkspace()) return `calc(100% - ${rail()}px)`
     if (!desktopSidePanelOpen()) return "100%"
     if (desktopReviewOpen()) return `${layout.session.width()}px`
     return `calc(100% - ${layout.fileTree.width()}px)`
   })
-  const centered = createMemo(() => isDesktop() && !desktopReviewOpen())
+  const centered = createMemo(() => isDesktop() && !desktopReviewOpen() && !desktopWorkspace())
+
+  onMount(() => {
+    if (!isDesktop()) return
+    setRail(Math.min(window.innerWidth - chatMin, Math.max(360, Math.round(window.innerWidth * (2 / 3)))))
+  })
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -472,6 +490,21 @@ export default function Page() {
     const path = file.pathFromTab(tab)
     if (path) file.load(path)
   })
+
+  createEffect(
+    on(
+      () => params.id,
+      (id) => {
+        if (!id) return
+        const value = normalizeTab(strudelSongTab(id))
+        if (needsSessionSongTab(tabs().all(), value)) {
+          tabs().open(value)
+        }
+        tabs().setActive(value)
+      },
+      { defer: true },
+    ),
+  )
 
   createEffect(
     on(
@@ -1652,6 +1685,9 @@ export default function Page() {
   return (
     <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
       <SessionHeader />
+      <Show when={params.id && !isDesktop()}>
+        <StrudelBar />
+      </Show>
       <div class="flex-1 min-h-0 flex flex-col md:flex-row">
         <Show when={!isDesktop() && !!params.id}>
           <Tabs value={store.mobileTab} class="h-auto">
@@ -1678,10 +1714,134 @@ export default function Page() {
           </Tabs>
         </Show>
 
+        <Show when={params.id && isDesktop()}>
+          <div
+            classList={{
+              "hidden min-h-0 shrink-0 border-l border-border-weak-base bg-background-base md:flex md:flex-col": true,
+              "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
+                !size.active() && !ui.reviewSnap,
+            }}
+            style={{
+              width: `${rail()}px`,
+            }}
+          >
+            <Tabs value={side()} class="tabs flex min-h-0 flex-1 flex-col" data-component="tabs" data-active={side()} variant="alt">
+              <Tabs.List data-slot="tablist" class="h-10 shrink-0 gap-4 border-b border-border-weak-base bg-background-base px-4 pt-2 pb-0">
+                <button
+                  type="button"
+                  class="border-b px-0 pb-2 text-12-regular transition-colors"
+                  classList={{
+                    "border-border-strong-base text-text-strong": side() === "strudel" && strudelTab() === "canvas" && strudelBrowse(),
+                    "border-transparent text-text-weaker hover:text-text-strong": !(side() === "strudel" && strudelTab() === "canvas" && strudelBrowse()),
+                  }}
+                  onClick={() => {
+                    setSide("strudel")
+                    setStrudelTab("canvas")
+                    setStrudelBrowse((item) => !item)
+                  }}
+                >
+                  Samples
+                </button>
+                <button
+                  type="button"
+                  class="border-b px-0 pb-2 text-12-regular transition-colors"
+                  classList={{
+                    "border-border-strong-base text-text-strong": side() === "strudel" && strudelTab() === "canvas",
+                    "border-transparent text-text-weaker hover:text-text-strong": !(side() === "strudel" && strudelTab() === "canvas"),
+                  }}
+                  onClick={() => {
+                    setSide("strudel")
+                    setStrudelTab("canvas")
+                  }}
+                >
+                  Canvas
+                </button>
+                <button
+                  type="button"
+                  class="border-b px-0 pb-2 text-12-regular transition-colors"
+                  classList={{
+                    "border-border-strong-base text-text-strong": side() === "files",
+                    "border-transparent text-text-weaker hover:text-text-strong": side() !== "files",
+                  }}
+                  onClick={() => setSide("files")}
+                >
+                  Code
+                </button>
+                <button
+                  type="button"
+                  class="border-b px-0 pb-2 text-12-regular transition-colors"
+                  classList={{
+                    "border-border-strong-base text-text-strong": side() === "strudel" && strudelTab() === "console",
+                    "border-transparent text-text-weaker hover:text-text-strong": !(side() === "strudel" && strudelTab() === "console"),
+                  }}
+                  onClick={() => {
+                    setSide("strudel")
+                    setStrudelTab("console")
+                  }}
+                >
+                  Console
+                </button>
+                <Show when={side() === "strudel"}>
+                  <div class="ml-4 min-w-0 flex items-center gap-2 overflow-hidden border-l border-border-weak-base pl-4 pb-2 text-12-regular">
+                    <span class="shrink-0 text-text-strong">{strudelState()}</span>
+                    <Show when={strudelReady()}>
+                      <span class="shrink-0 text-text-weaker">ready</span>
+                    </Show>
+                    <Show when={strudelMsg()}>
+                      {(value) => <span class="min-w-0 truncate text-text-weak">{value()}</span>}
+                    </Show>
+                  </div>
+                </Show>
+              </Tabs.List>
+              <div class="min-h-0 flex-1 overflow-hidden">
+                <Show when={side() === "files"}>
+                  <SessionSidePanel
+                    reviewPanel={reviewPanel}
+                    activeDiff={tree.activeDiff}
+                    focusReviewDiff={focusReviewDiff}
+                    reviewSnap={ui.reviewSnap}
+                    size={size}
+                    embedded
+                  />
+                </Show>
+                <Show when={side() === "strudel"}>
+                  <div class="min-h-0 h-full overflow-auto">
+                    <StrudelBar
+                      sessionID={params.id}
+                      tab={strudelTab}
+                      setTab={setStrudelTab}
+                      browse={strudelBrowse}
+                      setBrowse={setStrudelBrowse}
+                      setStatus={(next) => {
+                        setStrudelState(next.state)
+                        setStrudelReady(next.ready)
+                        setStrudelMsg(next.msg)
+                      }}
+                    />
+                  </div>
+                </Show>
+              </div>
+            </Tabs>
+          </div>
+          <div class="relative hidden h-full w-3 shrink-0 md:block" onPointerDown={() => size.start()}>
+            <ResizeHandle
+              direction="horizontal"
+              edge="end"
+              size={rail()}
+              min={360}
+              max={typeof window === "undefined" ? 960 : window.innerWidth - chatMin}
+              onResize={(width) => {
+                size.touch()
+                setRail(width)
+              }}
+            />
+          </div>
+        </Show>
+
         {/* Session panel */}
         <div
           classList={{
-            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 md:flex-none": true,
+            "@container relative min-w-0 shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1 md:flex-none": true,
             "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
               !size.active() && !ui.reviewSnap,
           }}
@@ -1791,7 +1951,7 @@ export default function Page() {
             }}
           />
 
-          <Show when={desktopReviewOpen()}>
+          <Show when={desktopReviewOpen() && !desktopWorkspace()}>
             <div onPointerDown={() => size.start()}>
               <ResizeHandle
                 direction="horizontal"
@@ -1807,13 +1967,15 @@ export default function Page() {
           </Show>
         </div>
 
-        <SessionSidePanel
-          reviewPanel={reviewPanel}
-          activeDiff={tree.activeDiff}
-          focusReviewDiff={focusReviewDiff}
-          reviewSnap={ui.reviewSnap}
-          size={size}
-        />
+        <Show when={!params.id || !isDesktop()}>
+          <SessionSidePanel
+            reviewPanel={reviewPanel}
+            activeDiff={tree.activeDiff}
+            focusReviewDiff={focusReviewDiff}
+            reviewSnap={ui.reviewSnap}
+            size={size}
+          />
+        </Show>
       </div>
 
       <TerminalPanel />

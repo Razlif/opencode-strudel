@@ -11,10 +11,24 @@ import { Ripgrep } from "./ripgrep"
 import fuzzysort from "fuzzysort"
 import { Global } from "../global"
 import { git } from "@/util/git"
+import { Bus } from "@/bus"
 import { Protected } from "./protected"
+import { FileWatcher } from "./watcher"
+import { appendFile } from "node:fs/promises"
 
 export namespace File {
   const log = Log.create({ service: "file" })
+  const trace = async (event: string, data: Record<string, unknown>) => {
+    const file = path.join(Instance.worktree, "file-trace.jsonl")
+    const line = {
+      time: new Date().toISOString(),
+      event,
+      directory: Instance.directory,
+      worktree: Instance.worktree,
+      ...data,
+    }
+    await appendFile(file, JSON.stringify(line) + "\n", "utf8").catch(() => undefined)
+  }
 
   export const Info = z
     .object({
@@ -72,6 +86,16 @@ export namespace File {
       ref: "FileContent",
     })
   export type Content = z.infer<typeof Content>
+
+  export const Saved = z
+    .object({
+      path: z.string(),
+      created: z.boolean(),
+    })
+    .meta({
+      ref: "FileSaved",
+    })
+  export type Saved = z.infer<typeof Saved>
 
   const binaryExtensions = new Set([
     "exe",
@@ -499,6 +523,7 @@ export namespace File {
     using _ = log.time("read", { file })
     const project = Instance.project
     const full = path.join(Instance.directory, file)
+    await trace("file.read", { file, full })
 
     // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
     // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
@@ -560,6 +585,46 @@ export namespace File {
       }
     }
     return { type: "text", content }
+  }
+
+  export async function write(file: string, content: string): Promise<Saved> {
+    using _ = log.time("write", { file })
+    const full = path.join(Instance.directory, file)
+
+    if (!Instance.containsPath(full)) {
+      throw new Error(`Access denied: path escapes project directory`)
+    }
+
+    const exists = await Filesystem.exists(full)
+    await trace("file.write.start", {
+      file,
+      full,
+      exists,
+      size: content.length,
+    })
+    await Filesystem.write(full, content)
+    await trace("file.write.done", {
+      file,
+      full,
+      exists,
+      size: content.length,
+    })
+    await Bus.publish(Event.Edited, {
+      file: full,
+    })
+    await Bus.publish(FileWatcher.Event.Updated, {
+      file: full,
+      event: exists ? "change" : "add",
+    })
+    await trace("file.watcher.publish", {
+      file,
+      full,
+      kind: exists ? "change" : "add",
+    })
+    return {
+      path: file,
+      created: !exists,
+    }
   }
 
   export async function list(dir?: string) {

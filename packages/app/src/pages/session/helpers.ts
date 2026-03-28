@@ -136,6 +136,8 @@ export const createOpenSessionFileTab = (input: {
   }
 }
 
+export const needsSessionSongTab = (list: string[], tab: string) => !list.includes(tab)
+
 export const getTabReorderIndex = (tabs: readonly string[], from: string, to: string) => {
   const fromIndex = tabs.indexOf(from)
   const toIndex = tabs.indexOf(to)

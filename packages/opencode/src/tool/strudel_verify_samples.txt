@@ -1,0 +1,14 @@
+Use this tool to verify Strudel sample usage against the local role whitelist and any sample packs referenced by the code.
+
+Use it when:
+- sample names are uncertain
+- the code uses `samples('...')` or remote packs
+- you are about to claim a sample choice should work
+- you want to explain why a sample name is unsupported
+
+This tool checks:
+- sample names extracted from `s(...)`, `sound(...)`, and `.s(...)`
+- whether those names exist in the local role whitelist
+- pack manifest availability for loaded remote sample packs when detectable
+
+Return concise guidance. Treat this tool as advisory only: browser playback in the Strudel panel remains the final truth.

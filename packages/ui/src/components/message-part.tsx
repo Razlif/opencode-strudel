@@ -325,6 +325,18 @@ export function getToolInfo(tool: string, input: any = {}): ToolInfo {
         icon: "brain",
         title: input.name || i18n.t("ui.tool.skill"),
       }
+    case "strudel_debug":
+      return {
+        icon: "code",
+        title: "Strudel Debug",
+        subtitle: input.goal,
+      }
+    case "strudel_verify_samples":
+      return {
+        icon: "code",
+        title: "Strudel Samples",
+        subtitle: input.goal,
+      }
     default:
       return {
         icon: "mcp",

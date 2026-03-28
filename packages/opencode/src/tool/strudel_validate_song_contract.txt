@@ -1,0 +1,11 @@
+Validate that a canonical Strudel Studio song file matches the app's required song contract.
+
+Use this for canonical session song files and other files that must follow the Strudel Studio song format.
+
+Checks include:
+- required marker comments
+- required top-level names
+- track / section / final_song structure
+- final file ending
+
+Use this before claiming a canonical song file is valid for the app.

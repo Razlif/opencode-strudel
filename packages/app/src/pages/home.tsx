@@ -13,6 +13,8 @@ import { DialogSelectServer } from "@/components/dialog-select-server"
 import { useServer } from "@/context/server"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
+import { useGlobalSDK } from "@/context/global-sdk"
+import { resolveStrudelWorkspaceRoot } from "@/pages/strudel-workspace-root"
 
 export default function Home() {
   const sync = useGlobalSync()
@@ -22,6 +24,7 @@ export default function Home() {
   const navigate = useNavigate()
   const server = useServer()
   const language = useLanguage()
+  const sdk = useGlobalSDK()
   const homedir = createMemo(() => sync.data.path.home)
   const recent = createMemo(() => {
     return sync.data.project
@@ -37,20 +40,33 @@ export default function Home() {
     return "bg-border-weak-base"
   })
 
-  function openProject(directory: string) {
-    layout.projects.open(directory)
-    server.projects.touch(directory)
-    navigate(`/${base64Encode(directory)}`)
+  async function openProject(directory: string) {
+    const root = await resolveStrudelWorkspaceRoot(directory, async (target) => {
+      const nodes =
+        (
+          await sdk
+            .createClient({
+              directory: target,
+              throwOnError: true,
+            })
+            .file.list({ path: "" })
+            .catch(() => ({ data: [] }))
+        ).data ?? []
+      return nodes.map((node) => (node.type === "directory" ? `${node.name}/` : node.name))
+    })
+    layout.projects.open(root)
+    server.projects.touch(root)
+    navigate(`/${base64Encode(root)}`)
   }
 
   async function chooseProject() {
     function resolve(result: string | string[] | null) {
       if (Array.isArray(result)) {
         for (const directory of result) {
-          openProject(directory)
+          void openProject(directory)
         }
       } else if (result) {
-        openProject(result)
+        void openProject(result)
       }
     }
 
@@ -101,7 +117,7 @@ export default function Home() {
                     size="large"
                     variant="ghost"
                     class="text-14-mono text-left justify-between px-3"
-                    onClick={() => openProject(project.worktree)}
+                    onClick={() => void openProject(project.worktree)}
                   >
                     {project.worktree.replace(homedir(), "~")}
                     <div class="text-14-regular text-text-weak">

@@ -1009,7 +1009,7 @@ export function MessageTimeline(props: {
                         editToolDefaultOpen={settings.general.editToolPartsExpanded()}
                         classes={{
                           root: "min-w-0 w-full relative",
-                          content: "flex flex-col justify-between !overflow-visible",
+                          content: "min-w-0 flex flex-col justify-between overflow-hidden",
                           container: "w-full px-4 md:px-5",
                         }}
                       />

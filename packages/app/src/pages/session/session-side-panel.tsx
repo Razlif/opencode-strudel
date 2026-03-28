@@ -32,6 +32,7 @@ export function SessionSidePanel(props: {
   focusReviewDiff: (path: string) => void
   reviewSnap: boolean
   size: Sizing
+  embedded?: boolean
 }) {
   const layout = useLayout()
   const sync = useSync()
@@ -45,9 +46,10 @@ export function SessionSidePanel(props: {
 
   const reviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
   const fileOpen = createMemo(() => isDesktop() && layout.fileTree.opened())
-  const open = createMemo(() => reviewOpen() || fileOpen())
+  const open = createMemo(() => props.embedded || reviewOpen() || fileOpen())
   const reviewTab = createMemo(() => isDesktop())
   const panelWidth = createMemo(() => {
+    if (props.embedded) return "100%"
     if (!open()) return "0px"
     if (reviewOpen()) return `calc(100% - ${layout.session.width()}px)`
     return `${layout.fileTree.width()}px`
@@ -201,7 +203,7 @@ export function SessionSidePanel(props: {
   })
 
   return (
-    <Show when={isDesktop()}>
+    <Show when={props.embedded || isDesktop()}>
       <aside
         id="review-panel"
         aria-label={language.t("session.panel.reviewAndFiles")}

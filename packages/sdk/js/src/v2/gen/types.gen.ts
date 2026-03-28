@@ -1813,6 +1813,11 @@ export type FileContent = {
   mimeType?: string
 }
 
+export type FileSaved = {
+  path: string
+  created: boolean
+}
+
 export type File = {
   path: string
   added: number
@@ -4172,6 +4177,28 @@ export type FileReadResponses = {
 }
 
 export type FileReadResponse = FileReadResponses[keyof FileReadResponses]
+
+export type FileWriteData = {
+  body?: {
+    path: string
+    content: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/file/content"
+}
+
+export type FileWriteResponses = {
+  /**
+   * File write result
+   */
+  200: FileSaved
+}
+
+export type FileWriteResponse = FileWriteResponses[keyof FileWriteResponses]
 
 export type FileStatusData = {
   body?: never

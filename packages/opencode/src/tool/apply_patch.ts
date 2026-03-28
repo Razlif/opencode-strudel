@@ -13,10 +13,24 @@ import { LSP } from "../lsp"
 import { Filesystem } from "../util/filesystem"
 import DESCRIPTION from "./apply_patch.txt"
 import { File } from "../file"
+import { appendFile } from "node:fs/promises"
 
 const PatchParams = z.object({
   patchText: z.string().describe("The full patch text that describes all changes to be made"),
 })
+
+async function trace(event: string, data: Record<string, unknown>) {
+  const file = path.join(Instance.directory, "tool-trace.jsonl")
+  const line = {
+    time: new Date().toISOString(),
+    tool: "apply_patch",
+    event,
+    directory: Instance.directory,
+    worktree: Instance.worktree,
+    ...data,
+  }
+  await appendFile(file, JSON.stringify(line) + "\n", "utf8").catch(() => undefined)
+}
 
 export const ApplyPatchTool = Tool.define("apply_patch", {
   description: DESCRIPTION,
@@ -25,6 +39,9 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
     if (!params.patchText) {
       throw new Error("patchText is required")
     }
+    await trace("start", {
+      patchLength: params.patchText.length,
+    })
 
     // Parse the patch to get hunks
     let hunks: Patch.Hunk[]
@@ -194,11 +211,21 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
           // Create parent directories (recursive: true is safe on existing/root dirs)
           await fs.mkdir(path.dirname(change.filePath), { recursive: true })
           await fs.writeFile(change.filePath, change.newContent, "utf-8")
+          await trace("write", {
+            filePath: change.filePath,
+            event: "add",
+            size: change.newContent.length,
+          })
           updates.push({ file: change.filePath, event: "add" })
           break
 
         case "update":
           await fs.writeFile(change.filePath, change.newContent, "utf-8")
+          await trace("write", {
+            filePath: change.filePath,
+            event: "change",
+            size: change.newContent.length,
+          })
           updates.push({ file: change.filePath, event: "change" })
           break
 
@@ -208,6 +235,12 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
             await fs.mkdir(path.dirname(change.movePath), { recursive: true })
             await fs.writeFile(change.movePath, change.newContent, "utf-8")
             await fs.unlink(change.filePath)
+            await trace("write", {
+              filePath: change.movePath,
+              event: "add",
+              size: change.newContent.length,
+              movedFrom: change.filePath,
+            })
             updates.push({ file: change.filePath, event: "unlink" })
             updates.push({ file: change.movePath, event: "add" })
           }
@@ -215,6 +248,10 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
 
         case "delete":
           await fs.unlink(change.filePath)
+          await trace("write", {
+            filePath: change.filePath,
+            event: "unlink",
+          })
           updates.push({ file: change.filePath, event: "unlink" })
           break
       }
@@ -229,6 +266,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
     // Publish file change events
     for (const update of updates) {
       await Bus.publish(FileWatcher.Event.Updated, update)
+      await trace("watcher.publish", update)
     }
 
     // Notify LSP of file changes and collect diagnostics
