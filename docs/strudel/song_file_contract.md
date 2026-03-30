@@ -1,6 +1,6 @@
 # Song File Contract
 
-Use [`song.js`](/C:/Users/moked/OneDrive/%D7%A9%D7%95%D7%9C%D7%97%D7%9F%20%D7%94%D7%A2%D7%91%D7%95%D7%93%D7%94/opencode-strudel/testing/song.js) as the canonical shape.
+Use the session canonical song file as the canonical shape.
 
 ## Rules
 

@@ -18,6 +18,7 @@ import { usePermission } from "@/context/permission"
 import { messageAgentColor } from "@/utils/agent"
 import { sessionPermissionRequest } from "../session/composer/session-request-tree"
 import { hasProjectPermissions } from "./helpers"
+import type { Song } from "./strudel-workspace-songs"
 
 const OPENCODE_PROJECT_ID = "4b0ea68d7af9a6031a7ffda7ad66e0cb83315750"
 
@@ -399,6 +400,56 @@ export const NewSessionItem = (props: {
         when={!tooltip()}
         fallback={
           <Tooltip placement={props.mobile ? "bottom" : "right"} value={label} gutter={10}>
+            {item}
+          </Tooltip>
+        }
+      >
+        {item}
+      </Show>
+    </div>
+  )
+}
+
+export const SongItem = (props: {
+  song: Song
+  slug: string
+  mobile?: boolean
+  dense?: boolean
+  active: Accessor<boolean>
+  sidebarExpanded: Accessor<boolean>
+  clearHoverProjectSoon: () => void
+}): JSX.Element => {
+  const layout = useLayout()
+  const item = (
+    <A
+      href={`/${props.slug}/session/${props.song.id}`}
+      class={`flex items-center justify-between gap-3 min-w-0 text-left w-full focus:outline-none ${props.dense ? "py-0.5" : "py-1"}`}
+      onClick={() => {
+        if (layout.sidebar.opened()) return
+        props.clearHoverProjectSoon()
+      }}
+    >
+      <div class="flex items-center gap-1 w-full">
+        <div class="shrink-0 size-6 flex items-center justify-center">
+          <Icon name="code" size="small" class="text-icon-weak" />
+        </div>
+        <span class="text-14-regular text-text-strong grow-1 min-w-0 overflow-hidden text-ellipsis truncate">
+          {props.song.title}
+        </span>
+      </div>
+    </A>
+  )
+
+  return (
+    <div
+      data-session-id={props.song.id}
+      class="group/session relative w-full rounded-md cursor-default transition-colors pl-2 pr-3 hover:bg-surface-raised-base-hover [&:has(:focus-visible)]:bg-surface-raised-base-hover has-[.active]:bg-surface-base-active"
+      classList={{ "bg-surface-base-active": props.active() }}
+    >
+      <Show
+        when={props.mobile || props.sidebarExpanded()}
+        fallback={
+          <Tooltip placement={props.mobile ? "bottom" : "right"} value={props.song.title} gutter={10}>
             {item}
           </Tooltip>
         }

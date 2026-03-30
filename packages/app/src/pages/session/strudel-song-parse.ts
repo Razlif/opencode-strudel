@@ -15,7 +15,6 @@ const words = (text: string) =>
 const tone = (name: string, code: string) => {
   if (/\.bank\s*\(/.test(code)) return "bank"
   if (/["']gm_[^"']+["']/.test(code)) return "gm"
-  if (["vox", "vox360", "camera_flash"].includes(name)) return "remote"
   return "named"
 }
 

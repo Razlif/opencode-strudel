@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@solidjs/router"
-import { createEffect, createMemo, For, Show, type Accessor, type JSX } from "solid-js"
+import { createEffect, createMemo, createResource, For, Show, type Accessor, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSortable } from "@thisbeyond/solid-dnd"
 import { createMediaQuery } from "@solid-primitives/media"
@@ -15,9 +15,11 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { type Session } from "@opencode-ai/sdk/v2/client"
 import { type LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
-import { NewSessionItem, SessionItem, SessionSkeleton } from "./sidebar-items"
+import { NewSessionItem, SessionItem, SessionSkeleton, SongItem } from "./sidebar-items"
 import { childMapByParent, sortedRootSessions } from "./helpers"
+import { list as listSongs } from "./strudel-workspace-songs"
 
 type InlineEditorComponent = (props: {
   id: string
@@ -301,6 +303,45 @@ const WorkspaceSessionList = (props: {
   </nav>
 )
 
+const WorkspaceSongList = (props: {
+  slug: Accessor<string>
+  mobile?: boolean
+  ctx: WorkspaceSidebarContext
+  showNew: Accessor<boolean>
+  loading: Accessor<boolean>
+  songs: Accessor<Awaited<ReturnType<typeof listSongs>> | undefined>
+}): JSX.Element => {
+  const params = useParams()
+  return (
+    <nav class="flex flex-col gap-1">
+      <Show when={props.showNew()}>
+        <NewSessionItem
+          slug={props.slug()}
+          mobile={props.mobile}
+          sidebarExpanded={props.ctx.sidebarExpanded}
+          clearHoverProjectSoon={props.ctx.clearHoverProjectSoon}
+          setHoverSession={props.ctx.setHoverSession}
+        />
+      </Show>
+      <Show when={props.loading()}>
+        <SessionSkeleton />
+      </Show>
+      <For each={props.songs() ?? []}>
+        {(song) => (
+          <SongItem
+            song={song}
+            slug={props.slug()}
+            mobile={props.mobile}
+            active={() => params.id === song.id}
+            sidebarExpanded={props.ctx.sidebarExpanded}
+            clearHoverProjectSoon={props.ctx.clearHoverProjectSoon}
+          />
+        )}
+      </For>
+    </nav>
+  )
+}
+
 export const SortableWorkspace = (props: {
   ctx: WorkspaceSidebarContext
   directory: string
@@ -312,6 +353,7 @@ export const SortableWorkspace = (props: {
   const navigate = useNavigate()
   const params = useParams()
   const globalSync = useGlobalSync()
+  const sdk = useGlobalSDK()
   const language = useLanguage()
   const sortable = createSortable(props.directory)
   const [workspaceStore, setWorkspaceStore] = globalSync.child(props.directory, { bootstrap: false })
@@ -337,7 +379,14 @@ export const SortableWorkspace = (props: {
   const wasBusy = createMemo((prev) => prev || busy(), false)
   const loading = createMemo(() => open() && !booted() && sessions().length === 0 && !wasBusy())
   const touch = createMediaQuery("(hover: none)")
-  const showNew = createMemo(() => !loading() && (touch() || sessions().length === 0 || (active() && !params.id)))
+  const [songs] = createResource(
+    () => (boot() ? props.directory : undefined),
+    (dir) => listSongs(sdk, dir),
+  )
+  const useSongs = createMemo(() => (songs()?.length ?? 0) > 0)
+  const showNew = createMemo(
+    () => !loading() && (touch() || (useSongs() ? (songs()?.length ?? 0) === 0 : sessions().length === 0) || (active() && !params.id)),
+  )
   const loadMore = async () => {
     setWorkspaceStore("limit", (limit) => (limit ?? 0) + 5)
     await globalSync.project.loadSessions(props.directory)
@@ -436,19 +485,33 @@ export const SortableWorkspace = (props: {
         </div>
 
         <Collapsible.Content>
-          <WorkspaceSessionList
-            slug={slug}
-            mobile={props.mobile}
-            popover={props.popover}
-            ctx={props.ctx}
-            showNew={showNew}
-            loading={loading}
-            sessions={sessions}
-            children={children}
-            hasMore={hasMore}
-            loadMore={loadMore}
-            language={language}
-          />
+          <Show
+            when={useSongs()}
+            fallback={
+              <WorkspaceSessionList
+                slug={slug}
+                mobile={props.mobile}
+                popover={props.popover}
+                ctx={props.ctx}
+                showNew={showNew}
+                loading={loading}
+                sessions={sessions}
+                children={children}
+                hasMore={hasMore}
+                loadMore={loadMore}
+                language={language}
+              />
+            }
+          >
+            <WorkspaceSongList
+              slug={slug}
+              mobile={props.mobile}
+              ctx={props.ctx}
+              showNew={showNew}
+              loading={() => songs.loading}
+              songs={songs}
+            />
+          </Show>
         </Collapsible.Content>
       </Collapsible>
     </div>
@@ -463,6 +526,7 @@ export const LocalWorkspace = (props: {
   popover?: boolean
 }): JSX.Element => {
   const globalSync = useGlobalSync()
+  const sdk = useGlobalSDK()
   const language = useLanguage()
   const workspace = createMemo(() => {
     const [store, setStore] = globalSync.child(props.project.worktree)
@@ -473,6 +537,8 @@ export const LocalWorkspace = (props: {
   const children = createMemo(() => childMapByParent(workspace().store.session))
   const booted = createMemo((prev) => prev || workspace().store.status === "complete", false)
   const loading = createMemo(() => !booted() && sessions().length === 0)
+  const [songs] = createResource(() => props.project.worktree, (dir) => listSongs(sdk, dir))
+  const useSongs = createMemo(() => (songs()?.length ?? 0) > 0)
   const hasMore = createMemo(() => workspace().store.sessionTotal > sessions().length)
   const loadMore = async () => {
     workspace().setStore("limit", (limit) => (limit ?? 0) + 5)
@@ -484,19 +550,33 @@ export const LocalWorkspace = (props: {
       ref={(el) => props.ctx.setScrollContainerRef(el, props.mobile)}
       class="size-full flex flex-col py-2 overflow-y-auto no-scrollbar [overflow-anchor:none]"
     >
-      <WorkspaceSessionList
-        slug={slug}
-        mobile={props.mobile}
-        popover={props.popover}
-        ctx={props.ctx}
-        showNew={() => false}
-        loading={loading}
-        sessions={sessions}
-        children={children}
-        hasMore={hasMore}
-        loadMore={loadMore}
-        language={language}
-      />
+      <Show
+        when={useSongs()}
+        fallback={
+          <WorkspaceSessionList
+            slug={slug}
+            mobile={props.mobile}
+            popover={props.popover}
+            ctx={props.ctx}
+            showNew={() => false}
+            loading={loading}
+            sessions={sessions}
+            children={children}
+            hasMore={hasMore}
+            loadMore={loadMore}
+            language={language}
+          />
+        }
+      >
+        <WorkspaceSongList
+          slug={slug}
+          mobile={props.mobile}
+          ctx={props.ctx}
+          showNew={() => false}
+          loading={() => songs.loading}
+          songs={songs}
+        />
+      </Show>
     </div>
   )
 }

@@ -82,25 +82,13 @@ type Sect = {
   len: string
   cards: Card[]
 }
-const vocals = ["vox", "vox360", "vocal", "vocals", "speech", "speechless", "yeah"]
+const vocals = ["vocal", "vocals", "speech", "speechless", "yeah"]
 const demos = [
   {
     name: "Basic groove",
     code: `stack(
   s("bd hh sd hh"),
   note("<c4 eb4 g4 bb4>").slow(2).gain(.6)
-)`,
-  },
-  {
-    name: "Remote one-shot",
-    code: `samples({
-  camera_flash: '360_camera_flash.wav',
-  vox360: '360_vocals.wav'
-}, 'https://raw.githubusercontent.com/kai-xi/360/main/samples/')
-
-stack(
-  s("camera_flash ~ camera_flash ~"),
-  note("<c4 g4 eb4 g4>").slow(2).gain(.5)
 )`,
   },
   {
@@ -155,60 +143,6 @@ stack(
   note("<g4 a4 g4 e4>").s("gm_lead_2_sawtooth").gain(.25),
   note("<[c4,e4,g4] [f4,a4,c5]>/2").s("gm_pad_poly").gain(.18)
 )`,
-  },
-  {
-    name: "Music 4 Machines lite",
-    code: `let cpm = 135/4
-
-samples({
-  vox: 'vox_chorus.wav',
-}, 'https://raw.githubusercontent.com/kai-xi/music4machines/main/samples/')
-
-let drums = stack(
-  sound("bd*4, ~ sd*4, ~ cp:3*4").bank("RolandTR909"),
-  sound("~ hh*8").bank("RolandTR808").gain(.2),
-  sound("sh*8").bank("RolandTR808").gain(.25)
-)
-
-let bass = cat(
-  "<c2>*4",
-  "<g1>*4",
-  "<eb1>*4",
-  "<f1>*4"
-).note()
-  .lpf(300)
-  .gain(.8)
-
-let chord = cat(
-  "<c4 eb4 g4 bb4>*8",
-  "<g3 bb3 d4 g4>*8",
-  "<eb4 g4 bb4 d5>*8",
-  "<f4 a4 c5 eb5>*8"
-).note()
-  .decay(.8)
-  .delay(".3:.225:.45")
-  .room(.7)
-  .gain(.35)
-
-let lead = cat(
-  "<- - eb5 - - d5 - bb4>*8",
-  "<- - bb4 - - a4 - g4>*8",
-  "<- - g4 - - f4 - g4>*8",
-  "<- - g4 - - a4 - a4>*8"
-).note()
-  .decay(.7)
-  .delay(".3:.225:.45")
-  .room(.4)
-  .gain(.5)
-
-let vox = s("vox").begin(0).end(.18).gain(.55).room(.2)
-
-arrange(
-  [8, stack(vox.mask("<1 0 0 0>"))],
-  [16, stack(drums, bass, chord, lead)],
-  [16, stack(drums, bass, chord, lead, vox.mask("<1 0 0 0 0 0 0 0>"))],
-  [8, stack(vox.mask("<1 0 0 0>"))]
-).cpm(cpm)`,
   },
 ] as const
 

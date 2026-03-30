@@ -64,6 +64,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const tabs = layout.tabs(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
 
     const inflight = new Map<string, Promise<void>>()
+    const seq = new Map<string, number>()
     const [store, setStore] = createStore<{
       file: Record<string, FileState>
     }>({
@@ -100,6 +101,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     createEffect(() => {
       scope()
       inflight.clear()
+      seq.clear()
       resetFileContentLru()
       batch(() => {
         setStore("file", reconcile({}))
@@ -167,7 +169,10 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       if (!options?.force && current?.loaded) return Promise.resolve()
 
       const pending = inflight.get(key)
-      if (pending) return pending
+      if (!options?.force && pending) return pending
+
+      const rev = (seq.get(key) ?? 0) + 1
+      seq.set(key, rev)
 
       setLoading(file)
 
@@ -175,6 +180,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
         .read({ path: file })
         .then((x) => {
           if (scope() !== directory) return
+          if (seq.get(key) !== rev) return
           const content = x.data
           setLoaded(file, content)
 
@@ -184,10 +190,11 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
         })
         .catch((e) => {
           if (scope() !== directory) return
+          if (seq.get(key) !== rev) return
           setLoadError(file, errorMessage(e, language.t("error.chain.unknown")))
         })
         .finally(() => {
-          inflight.delete(key)
+          if (inflight.get(key) === promise) inflight.delete(key)
         })
 
       inflight.set(key, promise)

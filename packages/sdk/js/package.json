@@ -3,7 +3,7 @@
   "name": "@opencode-ai/sdk",
   "version": "1.2.27",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "build": "bun ./script/build.ts"

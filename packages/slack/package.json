@@ -2,7 +2,7 @@
   "name": "@opencode-ai/slack",
   "version": "1.2.27",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "bun run src/index.ts",
     "typecheck": "tsgo --noEmit"

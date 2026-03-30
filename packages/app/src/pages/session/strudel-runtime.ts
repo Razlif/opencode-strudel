@@ -90,31 +90,7 @@ export const runtime = {
     "gm_epiano1",
     "gm_epiano2",
   ],
-  ext: [
-    {
-      name: "camera_flash",
-      pack: `samples({
-  camera_flash: '360_camera_flash.wav',
-  vox360: '360_vocals.wav'
-}, 'https://raw.githubusercontent.com/kai-xi/360/main/samples/')`,
-      preview: `s("camera_flash").gain(.75)`,
-    },
-    {
-      name: "vox360",
-      pack: `samples({
-  camera_flash: '360_camera_flash.wav',
-  vox360: '360_vocals.wav'
-}, 'https://raw.githubusercontent.com/kai-xi/360/main/samples/')`,
-      preview: `s("vox360").begin(0).end(.18).gain(.55)`,
-    },
-    {
-      name: "vox",
-      pack: `samples({
-  vox: 'vox_chorus.wav',
-}, 'https://raw.githubusercontent.com/kai-xi/music4machines/main/samples/')`,
-      preview: `s("vox").begin(0).end(.18).gain(.55)`,
-    },
-  ],
+  ext: [],
   starter: {
     title: "Starter Groove",
     bpm: 135,

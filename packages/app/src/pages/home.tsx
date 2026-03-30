@@ -142,6 +142,41 @@ export default function Home() {
           </div>
         </Match>
       </Switch>
+      <div class="mt-16 rounded-xl border border-border-weak-base bg-background-panel p-4">
+        <div class="text-13-medium text-text-strong">Credits & licensing</div>
+        <div class="mt-2 text-12-regular text-text-weak">
+          Strudel Studio is built from OpenCode and uses Strudel for browser-based live coding and playback.
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2 text-12-regular">
+          <a
+            class="rounded-md border border-border-weak-base px-2.5 py-1.5 text-text-strong hover:bg-background-base"
+            href="https://github.com/anomalyco/opencode"
+            target="_blank"
+            rel="noreferrer"
+          >
+            OpenCode
+          </a>
+          <a
+            class="rounded-md border border-border-weak-base px-2.5 py-1.5 text-text-strong hover:bg-background-base"
+            href="https://strudel.cc/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Strudel
+          </a>
+          <a
+            class="rounded-md border border-border-weak-base px-2.5 py-1.5 text-text-strong hover:bg-background-base"
+            href="https://codeberg.org/uzu/strudel"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Strudel license
+          </a>
+        </div>
+        <div class="mt-3 text-12-regular text-text-weaker">
+          Remote sample sources currently referenced by the app include TidalCycles dirt-samples and Felix Roos dough-samples.
+        </div>
+      </div>
     </div>
   )
 }

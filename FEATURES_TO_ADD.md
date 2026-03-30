@@ -5,6 +5,9 @@
 Goal:
 - Remove the need for the user to manually download or open the workspace template.
 
+Detailed spec:
+- `specs/strudel-workspace-onboarding.md`
+
 Desired flow:
 1. On app launch, if no Strudel workspace/project exists yet, show a first-run setup screen.
 2. Ask the user where they want the Strudel workspace to be created.
@@ -16,26 +19,26 @@ Desired flow:
 Notes:
 - The user is choosing the destination path, not opening an existing project.
 - The live workspace should be a user-writable copy of the template, not the bundled template folder itself.
-- This should replace the current generic “open any project” first-run experience for Strudel Studio.
+- This should replace the current generic "open any project" first-run experience for Strudel Studio.
 
 ## 2. Song Selector Built On Sessions
 
-Goal:
-- Make songs feel explicit and selectable in the UI while still riding on the existing session-based architecture.
+Status:
+- Partially completed
 
-Desired flow:
-1. Add a song name input in the UI.
-2. Keep the real canonical file naming scheme session-based, but change it to:
-   - `<session_id>_<song_name>.js`
-3. Show a song selector dropdown in the UI that displays song names, not raw file names.
-4. Load all existing songs into the current session sidebar so the user can switch between them.
-5. Reuse the current “new session” action to create a new session song.
-6. Treat the selected song as the active canonical file for the current session context.
+Completed:
+- the sidebar is now song-backed from `songs/<sessionID>.js`
+- songs are discoverable from canonical files
+- selecting a song navigates by session id and loads the matching canonical song
+
+Still open:
+- song naming beyond raw session ids
+- explicit song selector UI beyond the sidebar
+- deciding whether file naming should remain `songs/<sessionID>.js` or evolve further
 
 Notes:
-- This should merge the concept of song and session more tightly instead of introducing a separate parallel object model.
-- The UI should expose human-readable song names while the file layer keeps stable session-backed identifiers.
-- The sidebar should behave like a song list, even if the implementation still rides on session records underneath.
+- The core song-backed session sidebar is done.
+- The remaining work is mostly naming and UX polish, not basic discovery/navigation.
 
 ## 3. Real Teaching Examples In `examples/`
 
@@ -60,7 +63,7 @@ Notes:
 - The examples should be curated, small enough to study, and clearly commented.
 - The goal is not just reference material. The goal is to shape future song-writing behavior from good local examples.
 
-## 4. Stronger Research → Plan → Implement Prompt Flow
+## 4. Stronger Research -> Plan -> Implement Prompt Flow
 
 Goal:
 - Make the agent follow a clearer working sequence before editing songs or workspace files.
@@ -139,3 +142,70 @@ Notes:
 - Symbolic text to Strudel should use fixed rules first, with stylistic cleanup as a later pass.
 - A first version can ignore advanced MIDI features like dense CC automation, tempo maps, or complex overlapping polyphony.
 - This is likely the correct architecture for future MIDI-to-song import in Strudel Studio.
+
+## 7. Clearer External Sample Mechanism
+
+Goal:
+- Replace the current ad hoc external sample setup with a clearer, safer, and more product-ready mechanism.
+
+Desired direction:
+- make external sample loading explicit in the UI and song flow
+- distinguish clearly between:
+  - built-in runtime support
+  - user-loaded external sample packs
+  - reference-only sample examples
+- avoid shipping unclear default external sample dependencies in the runtime baseline
+- make attribution and source visibility obvious when external samples are used
+
+Notes:
+- The current external sample model is temporary and should be redesigned.
+- Future external sample support should fit the canonical song contract, validation flow, and workspace guidance cleanly.
+- This should also make licensing and source attribution easier to reason about.
+
+## 8. Duplicate Track
+
+Goal:
+- Let the user duplicate a track/card quickly inside the current section.
+
+Desired behavior:
+- duplicate the selected track
+- preserve its code, sound, and layout as a starting point
+- create a new track name automatically
+- keep the duplicate editable as an independent track
+
+Notes:
+- This is especially useful for layering, call-and-response variants, and quick sound swaps.
+- The duplicate should remain contract-safe when written back into the canonical song file.
+
+## 9. Duplicate Section
+
+Goal:
+- Let the user duplicate a full section quickly inside the song UI.
+
+Desired behavior:
+- duplicate the selected section
+- copy its tracks and card layout
+- create a new section name automatically
+- insert the duplicated section next to the original
+- keep the result valid under the canonical song contract
+
+Notes:
+- This should make fast arrangement building much easier.
+- The duplicate should be a real editable new section, not just another arrangement pointer to the same section object.
+
+## 10. Reset Current Song To Empty Canonical State
+
+Goal:
+- Let the user clear the current song and return to an empty Strudel canvas without breaking the canonical file contract.
+
+Desired behavior:
+- replace the current canonical song file with a valid empty canonical song
+- preserve required markers and top-level names
+- reload the canonical file immediately after the reset
+- return the UI to an empty canvas state
+- keep the song writable and valid for future edits
+
+Notes:
+- This is not deleting the session or deleting the song file.
+- This is a reset of the current session song contents back to an empty canonical starting point.
+- The result should still validate and load correctly in both code view and canvas view.
