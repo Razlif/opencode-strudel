@@ -29,6 +29,11 @@ describe("Filesystem.contains", () => {
     expect(Filesystem.contains("/project", "/project-other/file")).toBe(false)
     expect(Filesystem.contains("/project", "/projectfile")).toBe(false)
   })
+
+  test("treats equivalent windows slash styles as inside the project", () => {
+    expect(Filesystem.contains("C:/project/testing", "C:\\project\\testing\\songs\\foo.js")).toBe(true)
+    expect(Filesystem.contains("C:\\project\\testing", "C:/project/testing/songs/foo.js")).toBe(true)
+  })
 })
 
 /*

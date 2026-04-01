@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
+import type { Session } from "@opencode-ai/sdk/v2/client"
 import { canDisposeDirectory, pickDirectoriesToEvict } from "./global-sync/eviction"
-import { estimateRootSessionTotal, loadRootSessionsWithFallback } from "./global-sync/session-load"
+import { estimateRootSessionTotal, loadRootSessionsWithFallback, mergeRoots } from "./global-sync/session-load"
 
 describe("pickDirectoriesToEvict", () => {
   test("keeps pinned stores and evicts idle stores", () => {
@@ -74,6 +75,56 @@ describe("estimateRootSessionTotal", () => {
 
   test("keeps exact total when limited fetch is under limit", () => {
     expect(estimateRootSessionTotal({ count: 9, limit: 10, limited: true })).toBe(9)
+  })
+})
+
+describe("mergeRoots", () => {
+  test("keeps active local root sessions missing from the server list", () => {
+    const result = mergeRoots({
+      remote: [
+        {
+          id: "ses_1",
+          time: { created: 1, updated: 1 },
+        },
+      ] as Session[],
+      local: [
+        {
+          id: "ses_1",
+          time: { created: 1, updated: 1 },
+        },
+        {
+          id: "ses_2",
+          time: { created: 2, updated: 2 },
+        },
+      ] as Session[],
+      message: { ses_2: [{}] },
+      status: {},
+      now: 100,
+    })
+
+    expect(result.map((item) => item.id)).toEqual(["ses_1", "ses_2"])
+  })
+
+  test("drops stale missing local root sessions with no active local state", () => {
+    const result = mergeRoots({
+      remote: [
+        {
+          id: "ses_1",
+          time: { created: 1, updated: 1 },
+        },
+      ] as Session[],
+      local: [
+        {
+          id: "ses_2",
+          time: { created: 2, updated: 2 },
+        },
+      ] as Session[],
+      message: {},
+      status: {},
+      now: 100_000,
+    })
+
+    expect(result.map((item) => item.id)).toEqual(["ses_1"])
   })
 })
 

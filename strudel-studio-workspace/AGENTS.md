@@ -88,11 +88,14 @@ Use this workspace to think about Strudel musically, not just syntactically.
 
 ### House Style
 
+- Use plain JavaScript strings for setup/config calls such as `samples('...')`.
+- Use Strudel pattern strings for musical pattern calls such as `s("...")` and `note("...")`.
 - Use mini-notation inside `s("...")` and `note("...")` for local rhythmic and melodic content.
 - Use `cat(...)` for phrase-by-phrase or cycle-by-cycle sequencing at the JavaScript level.
 - Use `stack(...)` for simultaneous musical layers at the JavaScript level.
 - Use `arrange(...)` for section-level song form.
 - Use `[]` inside pattern strings for subdivision.
+- Verify loaded packs and manifests before trusting sample names.
 - Keep structural composition in named JavaScript variables:
   - tracks
   - sections
@@ -127,6 +130,13 @@ This workspace is editable project material.
 The current session's canonical song file comes from app-provided context. That current canonical song file is the song-specific source of truth for edits.
 
 Examples and references here are working material, not runtime guarantees.
+
+Use the workspace when you need editable project material such as:
+
+- examples
+- sample references
+- song-shaped references
+- other music context
 
 ## User Customization
 

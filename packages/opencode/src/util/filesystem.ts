@@ -140,13 +140,15 @@ export namespace Filesystem {
     )
   }
   export function overlaps(a: string, b: string) {
-    const relA = relative(a, b)
-    const relB = relative(b, a)
+    const left = resolve(a)
+    const right = resolve(b)
+    const relA = relative(left, right)
+    const relB = relative(right, left)
     return !relA || !relA.startsWith("..") || !relB || !relB.startsWith("..")
   }
 
   export function contains(parent: string, child: string) {
-    return !relative(parent, child).startsWith("..")
+    return !relative(resolve(parent), resolve(child)).startsWith("..")
   }
 
   export async function findUp(target: string, start: string, stop?: string) {

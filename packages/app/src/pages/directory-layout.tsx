@@ -11,6 +11,7 @@ import { base64Encode } from "@opencode-ai/util/encode"
 import { decode64 } from "@/utils/base64"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
+import { resolveStrudelWorkspaceRoot } from "@/pages/strudel-workspace-root"
 function DirectoryDataProvider(props: ParentProps<{ directory: string }>) {
   const navigate = useNavigate()
   const sync = useSync()
@@ -59,16 +60,29 @@ export default function Layout(props: ParentProps) {
         throwOnError: true,
       })
       .path.get()
-      .then((x) => {
+      .then(async (x) => {
         if (params.dir !== current) return
         const next = x.data?.directory ?? raw
+        const root = await resolveStrudelWorkspaceRoot(next, async (dir) => {
+          const nodes =
+            (
+              await globalSDK
+                .createClient({
+                  directory: dir,
+                  throwOnError: true,
+                })
+                .file.list({ path: "" })
+                .catch(() => ({ data: [] }))
+            ).data ?? []
+          return nodes.map((node) => (node.type === "directory" ? `${node.name}/` : node.name))
+        })
         batch(() => {
           setState("invalid", "")
-          setState("resolved", next)
+          setState("resolved", root)
         })
-        if (next === raw) return
+        if (root === raw) return
         const path = location.pathname.slice(current.length + 1)
-        navigate(`/${base64Encode(next)}${path}${location.search}${location.hash}`, { replace: true })
+        navigate(`/${base64Encode(root)}${path}${location.search}${location.hash}`, { replace: true })
       })
       .catch(() => {
         if (params.dir !== current) return

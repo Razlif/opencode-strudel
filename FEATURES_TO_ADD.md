@@ -162,50 +162,79 @@ Notes:
 - Future external sample support should fit the canonical song contract, validation flow, and workspace guidance cleanly.
 - This should also make licensing and source attribution easier to reason about.
 
-## 8. Duplicate Track
+## 8. Tutorial Agent Or Tutorial Experience
 
 Goal:
-- Let the user duplicate a track/card quickly inside the current section.
+- Add a dedicated teaching path that helps users learn Strudel Studio and Strudel composition inside the app.
+
+Possible directions:
+- a separate tutorial agent focused on explanation, guided exercises, and musical coaching
+- a tutorial mode or tutorial section in the app UI
+- step-by-step onboarding lessons tied to the real workspace and canonical song flow
 
 Desired behavior:
-- duplicate the selected track
-- preserve its code, sound, and layout as a starting point
-- create a new track name automatically
-- keep the duplicate editable as an independent track
+- teach the user how sections, tracks, and arrangement work in Strudel Studio
+- explain supported sounds, samples, and runtime limits clearly
+- guide the user through small practical exercises instead of only giving abstract explanations
+- help the user learn by editing the canonical song in controlled steps
 
 Notes:
-- This is especially useful for layering, call-and-response variants, and quick sound swaps.
-- The duplicate should remain contract-safe when written back into the canonical song file.
+- This should complement the build agent, not replace it.
+- The tutorial path should be slower, clearer, and more pedagogical than normal build behavior.
+- This can later connect to the `examples/` library and first-run onboarding flow.
 
-## 9. Duplicate Section
+## 9. Fix Chat UI Message Clipping
 
 Goal:
-- Let the user duplicate a full section quickly inside the song UI.
+- Fix message rendering issues in the chat UI so both user and agent messages display cleanly without clipping.
+
+Current issues:
+- user messages are clipped vertically
+- agent messages are clipped horizontally
 
 Desired behavior:
-- duplicate the selected section
-- copy its tracks and card layout
-- create a new section name automatically
-- insert the duplicated section next to the original
-- keep the result valid under the canonical song contract
+- user messages should size correctly to their content height
+- agent messages should wrap and fit the available width correctly
+- the chat timeline should remain readable without requiring refresh or awkward resizing
 
 Notes:
-- This should make fast arrangement building much easier.
-- The duplicate should be a real editable new section, not just another arrangement pointer to the same section object.
+- This is a UI polish and usability issue, but it directly affects core chat quality.
+- The fix should be verified across both fresh sessions and longer message histories.
 
-## 10. Reset Current Song To Empty Canonical State
+## 10. Strengthen Always-On Strudel Session Context
 
 Goal:
-- Let the user clear the current song and return to an empty Strudel canvas without breaking the canonical file contract.
+- Improve the hidden per-turn Strudel system context so the agent reliably keeps important working habits in mind during normal use.
 
-Desired behavior:
-- replace the current canonical song file with a valid empty canonical song
-- preserve required markers and top-level names
-- reload the canonical file immediately after the reset
-- return the UI to an empty canvas state
-- keep the song writable and valid for future edits
+Desired additions:
+- remind the agent to check whether relevant local examples or docs should be read before writing music
+- remind the agent to ask a single focused selection question when uncertainty would materially change the result
+- keep core session grounding always visible:
+  - current canonical song
+  - current focused section/card when available
+  - current UI state when relevant
 
 Notes:
-- This is not deleting the session or deleting the song file.
-- This is a reset of the current session song contents back to an empty canonical starting point.
-- The result should still validate and load correctly in both code view and canvas view.
+- This should live in the app-injected hidden session context, not only in `build.md`.
+- The goal is to reinforce high-value behaviors that tend to decay over longer sessions.
+- This should stay short and operational, not become another large prompt block.
+
+## 11. Export Audio
+
+Goal:
+- Let the user export the current Strudel song to a real audio file.
+
+Desired behavior:
+- export the current canonical song arrangement to an audio file such as `.wav`
+- make the export flow clear in the UI
+- ensure the exported result reflects the actual arranged song, not just a fragment
+
+Possible implementation directions:
+- offline render from the browser/runtime graph
+- record the app playback output into an audio buffer, then save it
+- later support additional formats such as mp3 if needed
+
+Notes:
+- A first version can target one reliable format, preferably `.wav`.
+- Export should be based on the canonical song and current runtime behavior.
+- This likely needs explicit handling for song duration, render completion, and offline capture.

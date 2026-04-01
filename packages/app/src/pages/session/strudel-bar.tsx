@@ -1,5 +1,7 @@
 import { Button } from "@opencode-ai/ui/button"
 import { Accordion } from "@opencode-ai/ui/accordion"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { Dialog } from "@opencode-ai/ui/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Tag } from "@opencode-ai/ui/tag"
 import { getCps, getPattern, getTime, initStrudel, soundMap } from "@strudel/web"
@@ -14,6 +16,7 @@ import { type FollowupDraft, sendFollowupDraft } from "@/components/prompt-input
 import { showToast } from "@opencode-ai/ui/toast"
 import { bootstrap as bootstrapSong } from "@/pages/session/strudel-song-bootstrap"
 import { registerGm } from "@/pages/session/strudel-gm"
+import { blank, copyCard, copySect, make, type Card, type Sect } from "@/pages/session/strudel-song-edit"
 import { banks, ext, gm, named, packs } from "@/pages/session/strudel-runtime"
 import { parse } from "@/pages/session/strudel-song-parse"
 import { check } from "@/pages/session/strudel-song-validate"
@@ -67,21 +70,6 @@ const strudel = () => window as Window & {
 
 const demo = `note("<c4 a3 f3 e3>(3,8)")`
 const mark = "samples("
-type Card = {
-  id: string
-  name: string
-  tone: string
-  code: string
-  x: number
-  y: number
-  color: string
-}
-type Sect = {
-  id: string
-  name: string
-  len: string
-  cards: Card[]
-}
 const vocals = ["vocal", "vocals", "speech", "speechless", "yeah"]
 const demos = [
   {
@@ -222,6 +210,7 @@ export function StrudelBar(props: {
   setBrowse?: (open: boolean) => void
   setStatus?: (next: { state: string; ready: boolean; msg: string }) => void
 }) {
+  const dialog = useDialog()
   const file = useFile()
   const sdk = useSDK()
   const globalSync = useGlobalSync()
@@ -697,11 +686,6 @@ export function StrudelBar(props: {
   }
   const renameSect = (value: string) => patch((item) => ({ ...item, name: value }))
   const relen = (value: string) => patch((item) => ({ ...item, len: value }))
-  const make = () => {
-    const n = sects().length + 1
-    const id = `s${Date.now()}`
-    return { id, name: `Section ${String.fromCharCode(64 + Math.min(n, 26))}`, len: "8", cards: [] }
-  }
   const take = (id: string) => {
     setPart(id)
     setOpenCard("")
@@ -715,7 +699,7 @@ export function StrudelBar(props: {
       take(next.id)
       return
     }
-    const item = make()
+    const item = make(sects())
     setSects((list) => {
       const i = list.findIndex((row) => row.id === part())
       if (i === -1) return [...list, item]
@@ -731,7 +715,7 @@ export function StrudelBar(props: {
     const i = list.findIndex((item) => item.id === part())
     if (i === -1) return
     if (list.length === 1) {
-      const item = make()
+      const item = blank()
       setSects([item])
       setPart(item.id)
       setOpenCard("")
@@ -742,6 +726,24 @@ export function StrudelBar(props: {
     setSects((list) => list.filter((item) => item.id !== part()))
     setPart(next?.id ?? "")
     setOpenCard("")
+    later()
+  }
+  const clone = () => {
+    const hit = copySect(sects(), part())
+    if (!hit) return
+    const label = curr()?.name ?? "section"
+    setSects(hit.sects)
+    setPart(hit.id)
+    setOpenCard("")
+    setMsg(`Duplicated ${label}.`)
+    later()
+  }
+  const reset = () => {
+    const item = blank()
+    setSects([item])
+    setPart(item.id)
+    setOpenCard("")
+    setMsg("Reset song to empty canonical state.")
     later()
   }
   const bars = (item: Sect) => {
@@ -971,6 +973,16 @@ export function StrudelBar(props: {
     setMsg(`Removed ${card.name} from ${curr()?.name ?? "section"}.`)
     later()
   }
+  const cloneCard = (card: Card) => {
+    const sect = curr()
+    if (!sect) return
+    const hit = copyCard(sect, card.id)
+    if (!hit) return
+    patch(() => hit.sect)
+    setOpenCard(hit.id)
+    setMsg(`Duplicated track ${card.name}.`)
+    later()
+  }
   const tweak = (card: Card, fn: (code: string) => string) => {
     patch((item) => ({
       ...item,
@@ -1009,6 +1021,39 @@ export function StrudelBar(props: {
   const volume = (card: Card, value: string) => {
     const gain = Number(value)
     tweak(card, (code) => withGain(code, Number.isFinite(gain) ? gain : gainOf(code)))
+  }
+
+  function DialogResetSong() {
+    return (
+      <Dialog title="Reset Song" fit>
+        <div class="flex flex-col gap-4 pl-6 pr-2.5 pb-3">
+          <div class="flex flex-col gap-1">
+            <span class="text-14-regular text-text-strong">
+              Reset the current song to an empty canonical state?
+            </span>
+            <span class="text-12-regular text-text-weak">
+              This keeps the current session and canonical song file, but clears the canvas back to one empty section.
+            </span>
+          </div>
+          <div class="flex justify-end gap-2">
+            <Button variant="ghost" size="large" onClick={() => dialog.close()}>
+              Cancel
+            </Button>
+            <Button
+              data-testid="strudel-song-reset-confirm"
+              variant="primary"
+              size="large"
+              onClick={() => {
+                reset()
+                dialog.close()
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    )
   }
 
   const trackplay = async (card: Card) => {
@@ -1382,6 +1427,9 @@ ${remoteItem.preview}`, rate(), beat())
                         <Button size="small" variant="secondary" onClick={() => step(1)}>
                           <Icon name="chevron-right" />
                         </Button>
+                        <Button data-testid="strudel-section-duplicate" size="small" variant="ghost" onClick={clone}>
+                          Duplicate
+                        </Button>
                         <Button data-testid="strudel-section-delete" size="small" variant="ghost" onClick={erase}>
                           Delete
                         </Button>
@@ -1397,6 +1445,14 @@ ${remoteItem.preview}`, rate(), beat())
                     </Button>
                     <Button data-testid="strudel-pause" size="small" variant="ghost" onClick={pause}>
                       Pause
+                    </Button>
+                    <Button
+                      data-testid="strudel-song-reset"
+                      size="small"
+                      variant="ghost"
+                      onClick={() => dialog.show(() => <DialogResetSong />)}
+                    >
+                      Reset Song
                     </Button>
                   </div>
                 </div>
@@ -1495,6 +1551,9 @@ ${remoteItem.preview}`, rate(), beat())
                           <div class="mb-2 flex items-center gap-2">
                             <Button size="small" variant="ghost" onClick={() => void solo(card())}>
                               {playScope() === "track" && playCard() === card().id ? "Unsolo" : "Solo"}
+                            </Button>
+                            <Button data-testid="strudel-track-duplicate" size="small" variant="ghost" onClick={() => cloneCard(card())}>
+                              Duplicate
                             </Button>
                             <Button size="small" variant="ghost" onClick={() => mute(card())}>
                               {gainOf(card().code) <= 0 ? "Unmute" : "Mute"}

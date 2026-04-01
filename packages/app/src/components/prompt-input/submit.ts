@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "@solidjs/router"
 import type { Accessor } from "solid-js"
 import type { FileSelection } from "@/context/file"
 import { useGlobalSync } from "@/context/global-sync"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useLocal } from "@/context/local"
@@ -20,6 +21,7 @@ import { setCursorPosition } from "./editor-dom"
 import { formatServerError } from "@/utils/server-errors"
 import { song as songPath } from "@/pages/session/strudel-song"
 import { getStrudelSessionContext } from "@/pages/session/strudel-session-context"
+import { resolveStrudelWorkspaceRoot } from "@/pages/strudel-workspace-root"
 
 type PendingPrompt = {
   abort: AbortController
@@ -205,6 +207,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
   const sdk = useSDK()
   const sync = useSync()
   const globalSync = useGlobalSync()
+  const globalSDK = useGlobalSDK()
   const local = useLocal()
   const permission = usePermission()
   const prompt = usePrompt()
@@ -221,7 +224,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     return language.t("common.requestFailed")
   }
 
-  const system = (sessionID: string) => {
+  const system = (sessionID: string, first: boolean) => {
     const value = getStrudelSessionContext(sessionID)
     const lines = [
       "Current Strudel session context:",
@@ -237,8 +240,31 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     if (value?.playback_state) lines.push(`- playback_state: ${value.playback_state}`)
     if (value?.status) lines.push(`- ui_status: ${value.status}`)
     if (value?.status_message) lines.push(`- ui_status_message: ${value.status_message}`)
+    if (first) {
+      lines.push("")
+      lines.push("First-turn Strudel instructions:")
+      lines.push("- Read the workspace `AGENTS.md` file before planning or editing.")
+      lines.push("- Read the canonical song file before making music claims or edits.")
+      lines.push("- Read relevant workspace examples, docs, or sample references before writing music.")
+      lines.push("- Stay inside the current canonical song file.")
+    }
     return lines.join("\n")
   }
+
+  const root = async (dir: string) =>
+    resolveStrudelWorkspaceRoot(dir, async (child) => {
+      const nodes =
+        (
+          await globalSDK
+            .createClient({
+              directory: child,
+              throwOnError: true,
+            })
+            .file.list({ path: "" })
+            .catch(() => ({ data: [] }))
+        ).data ?? []
+      return nodes.map((node) => (node.type === "directory" ? `${node.name}/` : node.name))
+    })
 
   const abort = async () => {
     const sessionID = params.id
@@ -331,7 +357,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     input.addToHistory(currentPrompt, mode)
     input.resetHistoryNavigation()
 
-    const projectDirectory = sdk.directory
+    const projectDirectory = await root(sdk.directory)
     const isNewSession = !params.id
     const shouldAutoAccept = isNewSession && input.autoAccept()
     const worktreeSelection = input.newSessionWorktree?.() || "main"
@@ -360,11 +386,11 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           return
         }
         WorktreeState.pending(createdWorktree.directory)
-        sessionDirectory = createdWorktree.directory
+        sessionDirectory = await root(createdWorktree.directory)
       }
 
       if (worktreeSelection !== "main" && worktreeSelection !== "create") {
-        sessionDirectory = worktreeSelection
+        sessionDirectory = await root(worktreeSelection)
       }
 
       if (sessionDirectory !== projectDirectory) {
@@ -413,6 +439,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     }
     const agent = currentAgent.name
     const context = prompt.context.items().slice()
+    const first =
+      (sync.data.message[session.id] ?? []).some((item) => item.role === "user") === false
     const draft: FollowupDraft = {
       sessionID: session.id,
       sessionDirectory,
@@ -421,7 +449,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       agent,
       model,
       variant,
-      system: system(session.id),
+      system: system(session.id, first),
     }
 
     const clearInput = () => {

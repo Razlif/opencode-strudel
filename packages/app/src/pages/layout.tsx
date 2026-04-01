@@ -53,6 +53,7 @@ import { createAim } from "@/utils/aim"
 import { setNavigate } from "@/utils/notification-click"
 import { Worktree as WorktreeState } from "@/utils/worktree"
 import { setSessionHandoff } from "@/pages/session/handoff"
+import { resolveStrudelWorkspaceRoot } from "@/pages/strudel-workspace-root"
 
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme"
@@ -1229,6 +1230,22 @@ export default function Layout(props: ParentProps) {
     return root
   }
 
+  async function normalizeSessionDir(directory: string) {
+    return resolveStrudelWorkspaceRoot(directory, async (dir) => {
+      const nodes =
+        (
+          await globalSDK
+            .createClient({
+              directory: dir,
+              throwOnError: true,
+            })
+            .file.list({ path: "" })
+            .catch(() => ({ data: [] }))
+        ).data ?? []
+      return nodes.map((node) => (node.type === "directory" ? `${node.name}/` : node.name))
+    })
+  }
+
   async function navigateToProject(directory: string | undefined) {
     if (!directory) return
     const root = projectRoot(directory)
@@ -1251,11 +1268,12 @@ export default function Layout(props: ParentProps) {
       return canOpen(target)
     }
     const openSession = async (target: { directory: string; id: string }) => {
-      if (!canOpen(target.directory)) return false
-      const [data] = globalSync.child(target.directory, { bootstrap: false })
+      const dir = await normalizeSessionDir(target.directory)
+      if (!(await refreshDirs(dir))) return false
+      const [data] = globalSync.child(dir, { bootstrap: false })
       if (data.session.some((item) => item.id === target.id)) {
-        setStore("lastProjectSession", root, { directory: target.directory, id: target.id, at: Date.now() })
-        navigateWithSidebarReset(`/${base64Encode(target.directory)}/session/${target.id}`)
+        setStore("lastProjectSession", root, { directory: dir, id: target.id, at: Date.now() })
+        navigateWithSidebarReset(`/${base64Encode(dir)}/session/${target.id}`)
         return true
       }
       const resolved = await globalSDK.client.session
@@ -1263,9 +1281,10 @@ export default function Layout(props: ParentProps) {
         .then((x) => x.data)
         .catch(() => undefined)
       if (!resolved?.directory) return false
-      if (!canOpen(resolved.directory)) return false
-      setStore("lastProjectSession", root, { directory: resolved.directory, id: resolved.id, at: Date.now() })
-      navigateWithSidebarReset(`/${base64Encode(resolved.directory)}/session/${resolved.id}`)
+      const next = await normalizeSessionDir(resolved.directory)
+      if (!(await refreshDirs(next))) return false
+      setStore("lastProjectSession", root, { directory: next, id: resolved.id, at: Date.now() })
+      navigateWithSidebarReset(`/${base64Encode(next)}/session/${resolved.id}`)
       return true
     }
 
@@ -1306,7 +1325,9 @@ export default function Layout(props: ParentProps) {
 
   function navigateToSession(session: Session | undefined) {
     if (!session) return
-    navigateWithSidebarReset(`/${base64Encode(session.directory)}/session/${session.id}`)
+    void normalizeSessionDir(session.directory).then((dir) => {
+      navigateWithSidebarReset(`/${base64Encode(dir)}/session/${session.id}`)
+    })
   }
 
   function openProject(directory: string, navigate = true) {

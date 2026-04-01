@@ -30,7 +30,7 @@ import { createChildStoreManager } from "./global-sync/child-store"
 import { applyDirectoryEvent, applyGlobalEvent, cleanupDroppedSessionCaches } from "./global-sync/event-reducer"
 import { createRefreshQueue } from "./global-sync/queue"
 import { clearSessionPrefetchDirectory } from "./global-sync/session-prefetch"
-import { estimateRootSessionTotal, loadRootSessionsWithFallback } from "./global-sync/session-load"
+import { estimateRootSessionTotal, loadRootSessionsWithFallback, mergeRoots } from "./global-sync/session-load"
 import { trimSessions } from "./global-sync/session-trim"
 import type { ProjectMeta } from "./global-sync/types"
 import { SESSION_RECENT_LIMIT } from "./global-sync/types"
@@ -210,19 +210,28 @@ function createGlobalSync() {
           .filter((s) => !!s?.id)
           .filter((s) => !s.time?.archived)
           .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+        const roots = mergeRoots({
+          remote: nonArchived,
+          local: store.session,
+          message: store.message,
+          status: store.session_status,
+        })
         const limit = store.limit
         const childSessions = store.session.filter((s) => !!s.parentID)
-        const sessions = trimSessions([...nonArchived, ...childSessions], {
+        const sessions = trimSessions([...roots, ...childSessions], {
           limit,
           permission: store.permission,
         })
         setStore(
           "sessionTotal",
-          estimateRootSessionTotal({
-            count: nonArchived.length,
-            limit: x.limit,
-            limited: x.limited,
-          }),
+          Math.max(
+            roots.length,
+            estimateRootSessionTotal({
+              count: nonArchived.length,
+              limit: x.limit,
+              limited: x.limited,
+            }),
+          ),
         )
         setStore("session", reconcile(sessions, { key: "id" }))
         cleanupDroppedSessionCaches(store, setStore, sessions, setSessionTodo)

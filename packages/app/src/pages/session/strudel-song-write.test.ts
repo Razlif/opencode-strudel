@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { blank } from "./strudel-song-edit"
 import { parse } from "./strudel-song-parse"
 import { write } from "./strudel-song-write"
 
@@ -110,5 +111,22 @@ describe("strudel song write", () => {
     const next = parse(out)
     expect(next.sects.map((item) => item.id)).toEqual(["section_verse"])
     expect(next.sects[0]?.cards).toEqual([])
+  })
+
+  test("writes a valid empty canonical song from the blank canvas state", () => {
+    const out = write({
+      bpm: "120",
+      div: "4",
+      sects: [blank(10)],
+    })
+
+    expect(out).toContain(`let track_section_a_placeholder = s("~").gain(0)`)
+    expect(out).toContain("let section_section_a = stack(")
+    expect(out).toContain("let final_song = arrange(")
+
+    const next = parse(out)
+    expect(next.sects).toHaveLength(1)
+    expect(next.sects[0]?.cards).toEqual([])
+    expect(next.sects[0]?.name).toBe("Section A")
   })
 })
