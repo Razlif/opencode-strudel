@@ -36,14 +36,8 @@ async function inspect(input: { code: string }) {
     stderr: "pipe",
   })
   const text = new TextEncoder().encode(input.code)
-  if ("write" in proc.stdin && typeof proc.stdin.write === "function") {
-    await proc.stdin.write(text)
-    await proc.stdin.end()
-  } else {
-    const writer = proc.stdin.getWriter()
-    await writer.write(text)
-    await writer.close()
-  }
+  await proc.stdin.write(text)
+  await proc.stdin.end()
 
   const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
   const done = await proc.exited
