@@ -53,7 +53,7 @@ import { createAim } from "@/utils/aim"
 import { setNavigate } from "@/utils/notification-click"
 import { Worktree as WorktreeState } from "@/utils/worktree"
 import { setSessionHandoff } from "@/pages/session/handoff"
-import { resolveStrudelWorkspaceRoot } from "@/pages/strudel-workspace-root"
+import { isStrudelWorkspaceRoot, resolveStrudelWorkspaceRoot } from "@/pages/strudel-workspace-root"
 
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme"
@@ -581,22 +581,39 @@ export default function Layout(props: ParentProps) {
         if (!value.layoutReady) return
         if (!state.autoselect) return
         if (value.dir) return
+        void (async () => {
+          const root = async (directory: string) =>
+            isStrudelWorkspaceRoot(
+              (
+                (
+                  await globalSDK
+                    .createClient({
+                      directory,
+                      throwOnError: true,
+                    })
+                    .file.list({ path: "" })
+                    .catch(() => ({ data: [] }))
+                ).data ?? []
+              ).map((node) => (node.type === "directory" ? `${node.name}/` : node.name)),
+            )
+          const last = server.projects.last()
+          const dirs = [
+            ...(last ? [last] : []),
+            ...value.list.map((project) => project.worktree).filter((item) => item !== last),
+          ]
 
-        const last = server.projects.last()
+          for (const dir of dirs) {
+            if (!(await root(dir))) continue
+            if (params.dir || !state.autoselect) return
+            setState("autoselect", false)
+            openProject(dir, false)
+            navigateToProject(dir)
+            return
+          }
 
-        if (value.list.length === 0) {
-          if (!last) return
+          if (params.dir || !state.autoselect) return
           setState("autoselect", false)
-          openProject(last, false)
-          navigateToProject(last)
-          return
-        }
-
-        const next = value.list.find((project) => project.worktree === last) ?? value.list[0]
-        if (!next) return
-        setState("autoselect", false)
-        openProject(next.worktree, false)
-        navigateToProject(next.worktree)
+        })()
       },
     ),
   )

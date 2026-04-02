@@ -4,6 +4,7 @@ import { createSimpleContext } from "@opencode-ai/ui/context"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useParams } from "@solidjs/router"
 import { getFilename } from "@opencode-ai/util/path"
+import { base64Encode } from "@opencode-ai/util/encode"
 import { useSDK } from "./sdk"
 import { useSync } from "./sync"
 import { useLanguage } from "@/context/language"
@@ -61,7 +62,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
 
     const scope = createMemo(() => sdk.directory)
     const path = createPathHelpers(scope)
-    const tabs = layout.tabs(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+    const tabs = layout.tabs(() => `${base64Encode(sdk.directory)}${params.id ? "/" + params.id : ""}`)
 
     const inflight = new Map<string, Promise<void>>()
     const seq = new Map<string, number>()

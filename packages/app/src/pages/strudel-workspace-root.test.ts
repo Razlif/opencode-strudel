@@ -13,4 +13,8 @@ describe("strudel workspace root", () => {
   test("rejects root without songs folder", () => {
     expect(isStrudelWorkspaceRoot(["AGENTS.md", "examples/"])).toBe(false)
   })
+
+  test("rejects packaged-looking songs directory without workspace marker", () => {
+    expect(isStrudelWorkspaceRoot(["songs/", "nix/", "bin/"])).toBe(false)
+  })
 })

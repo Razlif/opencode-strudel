@@ -1,6 +1,7 @@
+import type { Prompt } from "@/context/prompt"
 import { stub } from "./strudel-song"
 
-export const bootstrap = (path: string) => {
+export const bootstrap = (path: string): Prompt => {
   const text = [
     `Create the canonical Strudel session song file at "${path}" inside the current workspace root.`,
     "Use the existing songs directory in the workspace root.",

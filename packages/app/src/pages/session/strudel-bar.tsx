@@ -4,7 +4,7 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Tag } from "@opencode-ai/ui/tag"
-import { getCps, getPattern, getTime, initStrudel, soundMap } from "@strudel/web"
+import { initStrudel } from "@strudel/web"
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { useFile } from "@/context/file"
 import { useGlobalSync } from "@/context/global-sync"
@@ -67,6 +67,19 @@ const strudel = () => window as Window & {
   hush?: () => void
   evaluate?: (code: string, autoplay?: boolean) => unknown
   samples?: (src: string) => unknown
+  getCps?: () => number
+  getPattern?: () => {
+    queryArc: (
+      from: number,
+      to: number,
+      opts: { _cps: number },
+    ) => {
+      hasOnset: () => boolean
+      context: { pulse?: number }
+    }[]
+  }
+  getTime?: () => number
+  soundMap?: unknown
 }
 
 const demo = `note("<c4 a3 f3 e3>(3,8)")`
@@ -250,7 +263,7 @@ export function StrudelBar(props: {
   const [autofile, setAutofile] = createSignal("")
   const [sessionBusy, setSessionBusy] = createSignal(false)
   const [support, setSupport] = createSignal(
-    probe(soundMap, {
+    probe(strudel().soundMap, {
       banks,
       named,
       gm,
@@ -302,9 +315,9 @@ export function StrudelBar(props: {
       gm,
       ext: ext.map((item) => item.name),
     }
-    const next = probe(soundMap, src)
+    const next = probe(strudel().soundMap, src)
     setSupport(next)
-    if (debug) console.log("[strudel-support]", report(soundMap, src))
+    if (debug) console.log("[strudel-support]", report(strudel().soundMap, src))
   }
   const save = () => {
     const p = path()
@@ -459,7 +472,7 @@ export function StrudelBar(props: {
 
   createEffect(() => {
     const src = songfile()?.content?.content
-    if (!needsHydrate(loaded(), filestate().kind, src)) return
+    if (!src || !needsHydrate(loaded(), filestate().kind, src)) return
     const next = parse(src)
     setBpm(next.bpm)
     setDiv(next.div)
@@ -475,7 +488,7 @@ export function StrudelBar(props: {
         ? "The Strudel UI was rehydrated from the canonical song file on disk."
         : "The canonical song file was loaded into the Strudel UI.",
     })
-    setLoaded(src)
+    setLoaded(src ?? "")
   })
 
   onMount(() => {
@@ -494,10 +507,10 @@ export function StrudelBar(props: {
     }
     const tick = () => {
       frame = requestAnimationFrame(tick)
-      const pat = getPattern()
-      const now = getTime?.()
+      const pat = strudel().getPattern?.()
+      const now = strudel().getTime?.()
       if (!pat || typeof now !== "number") return
-      const cps = getCps?.() ?? 1
+      const cps = strudel().getCps?.() ?? 1
       const from = Math.max(last || now, now - 1 / 10)
       last = now
       const ids = sects().flatMap((item) => item.cards.map((card) => card.id))
@@ -593,6 +606,7 @@ export function StrudelBar(props: {
       return
     }
     const next = bootstrapSong(value)
+    const cursor = next[0]?.type === "text" ? next[0].content.length : 0
     const model = local.model.current()
     const agent = local.agent.current()
     const id = sid()
@@ -604,7 +618,7 @@ export function StrudelBar(props: {
         hasAgent: !!agent,
       })
       console.log("[strudel-bootstrap] draft")
-      prompt.set(next, next[0].content.length)
+      prompt.set(next, cursor)
       setMsg("Bootstrap prompt prepared in chat.")
       showToast({
         title: "Bootstrap prompt ready",
@@ -646,7 +660,7 @@ export function StrudelBar(props: {
       .then((ok) => {
         if (ok === false) {
           console.log("[strudel-bootstrap] send-cancelled")
-          prompt.set(next, next[0].content.length)
+          prompt.set(next, cursor)
           setMsg("Bootstrap prompt prepared in chat.")
           showToast({
             title: "Bootstrap prompt ready",
@@ -663,7 +677,7 @@ export function StrudelBar(props: {
       })
       .catch((err) => {
         console.error("[strudel-bootstrap] send-failed", err)
-        prompt.set(next, next[0].content.length)
+        prompt.set(next, cursor)
         setMsg("Bootstrap send failed. Prompt prepared in chat.")
         showToast({
           variant: "error",

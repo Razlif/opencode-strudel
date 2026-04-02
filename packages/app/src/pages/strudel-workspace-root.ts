@@ -23,8 +23,7 @@ const parent = (input: string) => {
 
 export const isStrudelWorkspaceRoot = (items: string[]) => {
   const names = new Set(items)
-  if (!names.has("songs/")) return false
-  return true
+  return names.has("AGENTS.md") && names.has("songs/")
 }
 
 export const resolveStrudelWorkspaceRoot = async (
