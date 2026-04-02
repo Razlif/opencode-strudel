@@ -18,5 +18,5 @@ export const bootstrap = (path: string) => {
     "```",
   ].join("\n")
 
-  return [{ type: "text", content: text, start: 0, end: text.length }] as const
+  return [{ type: "text", content: text, start: 0, end: text.length }]
 }

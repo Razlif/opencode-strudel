@@ -15,6 +15,7 @@ const words = (text: string) =>
 const tone = (name: string, code: string) => {
   if (/\.bank\s*\(/.test(code)) return "bank"
   if (/["']gm_[^"']+["']/.test(code)) return "gm"
+  if (/\bs\s*\(\s*["']vox["']\s*\)/.test(code)) return "remote"
   return "named"
 }
 

@@ -9,11 +9,6 @@ It combines:
 - a Strudel browser runtime
 - a visual song UI built around sections and tracks
 
-
-## Quick Start
-
-The current setup path is local: run the server, run the app, then open the workspace template.
-
 ### 1. Download The Project
 
 - Open this GitHub repository in your browser.
@@ -25,6 +20,16 @@ The current setup path is local: run the server, run the app, then open the work
 
 ### 2. Install Dependencies
 
+- Bun is required.
+- If you do not have Bun installed yet, install it first:
+  - docs: https://bun.sh/docs/installation
+  - Windows PowerShell:
+
+```bash
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+- After installing Bun, restart your terminal.
 - In the project folder, run:
 
 ```bash
@@ -55,6 +60,24 @@ bun run dev:web
 - The command will print a local URL.
 - Open that URL in your browser.
 
+### 4.5 Optional: Melody Recording Backend
+
+- `Record Melody` currently depends on an experimental local Python backend.
+- The rest of the app runs without it.
+- If you want melody transcription, install Python 3 first:
+  - https://www.python.org/downloads/
+- Then install the backend dependencies:
+
+```bash
+pip install -r script/strudel/requirements-melody-pyin.txt
+```
+
+- Start the melody backend in a separate terminal:
+
+```bash
+python script/strudel/melody-pyin-server.py
+```
+
 ### 5. Get The Workspace Template
 
 This repository includes a ready-made workspace template:
@@ -77,8 +100,21 @@ You will use that folder as your music workspace.
 
 in the session screen say hello to the agent to start the session - this will open the strudel studio UI.
 
-the agent and prompts have not been fully optimized yet so theagent will have a learning curve at the start of the conversation. he should be prompted to read the composition tutorial in the repo.
+press play on the defualt built in template.
 
+the sound banks are in the leftside bar- you can preview a sound back or add an empty track into the active section.
+
+the agent and prompts have not been fully optimized yet so the agent will have a learning curve at the start of the conversation. he should be prompted to read the composition tutorial in the repo.
+
+the agent can create a full arrangment with some earlier planning - but this is slower espcially on the free models.
+
+ideally you can work with the agent on the track or section level.
+
+a tutorial agent is in planning so will not need torely on the agent completly for strudel and you can patch the tracks with your own nuance.
+
+- Guided melody recording / "Record Melody" is still in progress.
+- It is experimental and not production-ready yet.
+- It currently requires the optional local Python backend described above.
 
 
 ## Current Direction

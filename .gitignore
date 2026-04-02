@@ -34,3 +34,12 @@ tsconfig.tsbuildinfo
 **/prompt-trace.jsonl
 **/tool-trace.jsonl
 **/file-trace.jsonl
+
+# Melody debug artifacts
+oldmcdonalds.mp3
+phrase*.json
+result*.json
+raw*.csv
+script/strudel/melody-runs/
+script/strudel/__pycache__/
+packages/app/public/basic-pitch/

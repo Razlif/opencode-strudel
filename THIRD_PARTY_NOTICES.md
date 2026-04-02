@@ -24,6 +24,51 @@ This repository began as a derivative of OpenCode and retains OpenCode-derived c
 
 Strudel powers the browser-based live coding and playback environment used by Strudel Studio.
 
+## Experimental Melody Transcription Backend
+
+The current experimental `Record Melody` flow can use a local Python backend during development.
+
+### librosa
+
+- Package: `librosa`
+- Website: https://librosa.org/
+- Source: https://github.com/librosa/librosa
+- License: ISC
+
+### NumPy
+
+- Package: `numpy`
+- Website: https://numpy.org/
+- Source: https://github.com/numpy/numpy
+- License: BSD-3-Clause
+
+### SciPy
+
+- Package: `scipy`
+- Website: https://scipy.org/
+- Source: https://github.com/scipy/scipy
+- License: BSD-3-Clause
+
+### PySoundFile / soundfile
+
+- Package: `soundfile`
+- Source: https://github.com/bastibe/python-soundfile
+- License: BSD-3-Clause
+
+### FastAPI
+
+- Package: `fastapi`
+- Website: https://fastapi.tiangolo.com/
+- Source: https://github.com/fastapi/fastapi
+- License: MIT
+
+### Uvicorn
+
+- Package: `uvicorn`
+- Website: https://www.uvicorn.org/
+- Source: https://github.com/encode/uvicorn
+- License: BSD-3-Clause
+
 ## Remote Sample Sources Referenced By The App
 
 The current app runtime references the following remote sample sources:

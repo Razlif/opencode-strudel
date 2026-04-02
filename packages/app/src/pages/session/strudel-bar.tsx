@@ -15,6 +15,7 @@ import { useSync } from "@/context/sync"
 import { type FollowupDraft, sendFollowupDraft } from "@/components/prompt-input/submit"
 import { showToast } from "@opencode-ai/ui/toast"
 import { bootstrap as bootstrapSong } from "@/pages/session/strudel-song-bootstrap"
+import { DialogImportMelody } from "@/pages/session/dialog-import-melody"
 import { registerGm } from "@/pages/session/strudel-gm"
 import { blank, copyCard, copySect, make, type Card, type Sect } from "@/pages/session/strudel-song-edit"
 import { banks, ext, gm, named, packs } from "@/pages/session/strudel-runtime"
@@ -964,6 +965,29 @@ export function StrudelBar(props: {
     setMsg(`Added ${name} to ${curr()?.name ?? "section"}.`)
     later()
   }
+  const plantCode = (name: string, tone: string, code: string, x?: number, y?: number) => {
+    if (!name || !tone || !code.trim()) return
+    const id = `${name}:${Date.now()}`
+    const n = cards().length
+    patch((item) => ({
+      ...item,
+      cards: [
+        ...item.cards,
+        {
+          id,
+          name,
+          tone,
+          code,
+          x: x ?? 48 + (n % 4) * 132,
+          y: y ?? 48 + Math.floor(n / 4) * 108,
+          color: tint(name, tone),
+        },
+      ],
+    }))
+    setOpenCard("")
+    setMsg(`Added ${name} to ${curr()?.name ?? "section"}.`)
+    later()
+  }
   const drop = (card: Card) => {
     patch((item) => ({
       ...item,
@@ -1099,7 +1123,10 @@ export function StrudelBar(props: {
       await pause()
       return
     }
-    setBack(playScope() === "song" || playScope() === "section" ? playScope() : "")
+    {
+      const prev = playScope()
+      setBack(prev === "song" || prev === "section" ? prev : "")
+    }
     await trackplay(card)
   }
 
@@ -1290,7 +1317,7 @@ ${remoteItem.preview}`, rate(), beat())
                                           size="small"
                                           variant="secondary"
                                           class="h-7 w-7 px-0"
-                                          onClick={(event) => {
+                                          onClick={(event: MouseEvent) => {
                                             event.preventDefault()
                                             event.stopPropagation()
                                             setPickSound(item)
@@ -1305,7 +1332,7 @@ ${remoteItem.preview}`, rate(), beat())
                                           disabled={!!busy() && busy() !== item}
                                           variant={hear() === item ? "ghost" : "secondary"}
                                           class="h-7 w-7 px-0"
-                                          onClick={(event) => {
+                                          onClick={(event: MouseEvent) => {
                                             event.preventDefault()
                                             event.stopPropagation()
                                             preview(item, group.tone)
@@ -1439,6 +1466,56 @@ ${remoteItem.preview}`, rate(), beat())
                   <div class="flex shrink-0 flex-wrap items-center gap-2">
                     <Button data-testid="strudel-section-play" size="small" variant="secondary" onClick={() => void playSect()}>
                       Play Section
+                    </Button>
+                    <Button
+                      data-testid="strudel-record-melody"
+                      size="small"
+                      variant="secondary"
+                      onClick={() =>
+                        dialog.show(() => (
+                          <DialogImportMelody
+                            bpm={rate()}
+                            div={beat()}
+                            start="record"
+                            onClose={() => dialog.close()}
+                            onInsert={(code, meta) => {
+                              plantCode("Imported Melody", "gm", code)
+                              dialog.close()
+                              showToast({
+                                title: "Melody imported",
+                                description: `Raw ${meta.raw}, kept ${meta.kept}, dropped ${meta.dropped}, cropped ${meta.cropped}, collisions ${meta.collisions}.`,
+                              })
+                            }}
+                          />
+                        ))
+                      }
+                    >
+                      Record Melody
+                    </Button>
+                    <Button
+                      data-testid="strudel-import-melody"
+                      size="small"
+                      variant="secondary"
+                      onClick={() =>
+                        dialog.show(() => (
+                          <DialogImportMelody
+                            bpm={rate()}
+                            div={beat()}
+                            start="upload"
+                            onClose={() => dialog.close()}
+                            onInsert={(code, meta) => {
+                              plantCode("Imported Melody", "gm", code)
+                              dialog.close()
+                              showToast({
+                                title: "Melody imported",
+                                description: `Raw ${meta.raw}, kept ${meta.kept}, dropped ${meta.dropped}, cropped ${meta.cropped}, collisions ${meta.collisions}.`,
+                              })
+                            }}
+                          />
+                        ))
+                      }
+                    >
+                      Import Melody
                     </Button>
                     <Button data-testid="strudel-play" size="small" onClick={() => void play()}>
                       Play Song

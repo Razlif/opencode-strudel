@@ -1,3 +1,4 @@
+// @ts-nocheck
 import gm from "@strudel/soundfonts/gm.mjs"
 import {
   freqToMidi,

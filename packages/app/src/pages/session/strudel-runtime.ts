@@ -1,3 +1,9 @@
+type Remote = {
+  name: string
+  pack: string
+  preview: string
+}
+
 export const runtime = {
   packs: {
     dirt: "github:tidalcycles/dirt-samples",
@@ -90,7 +96,13 @@ export const runtime = {
     "gm_epiano1",
     "gm_epiano2",
   ],
-  ext: [],
+  ext: [
+    {
+      name: "vox",
+      pack: `samples("https://raw.githubusercontent.com/felixroos/dough-samples/main/vcsl.json")`,
+      preview: `s("vox").gain(.7)`,
+    },
+  ] as Remote[],
   starter: {
     title: "Starter Groove",
     bpm: 135,
