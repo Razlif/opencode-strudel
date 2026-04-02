@@ -9,7 +9,6 @@ It combines:
 - a Strudel browser runtime
 - a visual song UI built around sections and tracks
 
-The goal is not to be a generic code editor with music on the side. The goal is to help the user write, hear, inspect, and evolve Strudel songs inside one focused workflow.
 
 ## Quick Start
 
@@ -76,22 +75,10 @@ You will use that folder as your music workspace.
 
 ### 7. Start Making Music
 
-Inside the workspace you will find:
+in the session screen say hello to the agent to start the session - this will open the strudel studio UI.
 
-- `songs/` for song files
-- `examples/` for musical examples
-- `samples/` for sample-related references
-- `resources/` for notes and supporting material
+the agent and prompts have not been fully optimized yet so theagent will have a learning curve at the start of the conversation. he should be prompted to read the composition tutorial in the repo.
 
-After opening the workspace:
-
-- create a new session
-- the app will create a song file for that session automatically
-- type a message in chat such as:
-  - `make me a dark synth groove`
-  - `add a chorus section`
-  - `turn this into a jazz trio`
-- press Enter and let the agent build the song with you
 
 
 ## Current Direction
@@ -143,7 +130,6 @@ The repo includes a Strudel Studio workspace template at:
 This workspace is intended to contain:
 
 - `songs/`
-- `examples/`
 - `samples/`
 - `resources/`
 - `.opencode/agent/` prompt files
