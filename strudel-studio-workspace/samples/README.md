@@ -8,3 +8,8 @@ Keep here:
 - exact sample names
 - pack notes
 - usage notes for non-baseline samples
+
+Starter references:
+
+- `sound-banks.md`
+  available built-in sample banks, named instruments, GM sounds, and remote sample entries used by Strudel Studio

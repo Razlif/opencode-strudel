@@ -27,7 +27,10 @@ async function loadRuntime() {
     throw new Error("Could not locate runtime object terminator in strudel-runtime.ts");
   }
 
-  const objectSource = `${body.slice(0, end + 1).trim()}`;
+  const objectSource = `${body
+    .slice(0, end + 1)
+    .replace(/\s+as\s+[A-Za-z_][A-Za-z0-9_<>\[\]]*/g, "")
+    .trim()}`;
   return Function(`return (${objectSource});`)();
 }
 

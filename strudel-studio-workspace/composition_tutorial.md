@@ -32,6 +32,61 @@ Teach the minimum building blocks.
 - `cat(...)` for sequence by phrase or cycle
 - `arrange(...)` for song form
 
+## Syntax Do / Don't
+
+Teach the safest syntax first.
+
+### Do
+
+- use plain sequence strings for one-cycle patterns
+- use `[]` inside pattern strings for local subdivision
+- use `cat(...)` when notes or chords change by phrase or by bar
+- use `stack(...)` only for simultaneous layers
+- keep one pitch-writing lane:
+  - explicit `note(...)` strings for direct notes
+  - or symbolic `n(...).scale(...)` / `n(...).chord(...).voicing()`
+
+Good examples:
+
+```js
+s("bd ~ sd ~ ~ bd sd ~")
+
+note("a2 ~ a2 ~ f2 ~ c3 ~")
+
+cat(
+  note("e5 ~ g5 a5 ~ g5 ~ e5 ~ c5"),
+  note("~ b4 g4 ~ e5 ~ d5 ~ b4"),
+)
+```
+
+### Don't
+
+- do not wrap a whole melodic phrase in `<>` just to make it move through time
+- do not use `note("<...>/8")` as a default lead-writing pattern
+- do not pass explicit note strings back through `.chord(...).voicing()`
+- do not teach selector-heavy syntax before simple sequence syntax is clear
+
+Avoid:
+
+```js
+note("<e5 ~ g5 a5 ~ g5 ~ e5 ~ c5 ~>/8")
+```
+
+Prefer:
+
+```js
+note("e5 ~ g5 a5 ~ g5 ~ e5 ~ c5")
+```
+
+or:
+
+```js
+cat(
+  note("e5 ~ g5 a5 ~ g5 ~ e5 ~ c5"),
+  note("~ b4 g4 ~ e5 ~ d5 ~ b4"),
+)
+```
+
 ### 3. Cycle And Rhythm
 
 Teach rhythm before harmony.
@@ -53,7 +108,8 @@ Rhythm reference examples:
 Use this as a simple drum-and-bass backbone.
 
 ```js
-s("<bd ~ sd ~ ~ bd sd ~>*8")
+s("bd ~ sd ~ ~ bd sd ~")
+  .fast(8)
   .bank("RolandTR909")
   .gain(0.4)
   .room(0.3)
@@ -64,7 +120,8 @@ s("<bd ~ sd ~ ~ bd sd ~>*8")
 Use this as a short alternate phrase or fill, not the whole groove.
 
 ```js
-s("<[sd bd]!2>*4")
+s("[sd bd]!2")
+  .fast(4)
   .bank("RolandTR909")
   .gain(0.4)
   .room(0.3)
@@ -75,7 +132,8 @@ s("<[sd bd]!2>*4")
 Use one strong core groove, then add one light upper layer only if needed.
 
 ```js
-let core_dnb = s("<bd ~ sd ~ ~ bd sd ~>*8")
+let core_dnb = s("bd ~ sd ~ ~ bd sd ~")
+  .fast(8)
   .bank("RolandTR909")
   .gain(0.4)
 
@@ -96,12 +154,14 @@ Teaching point:
 Use this as a sparse bossa foundation with low-end pulse and repeated rim identity.
 
 ```js
-let kick_bossa = s("<bd ~ ~ <bd ~>>*2")
+let kick_bossa = s("bd ~ ~ [bd ~]")
+  .fast(2)
   .bank("LinnDrum")
-  .gain("<0.36 0.2>")
+  .gain(0.28)
   .room(0.18)
 
-let rim_bossa = s("<[[~ ~ rim]!5]@15 ~>*2")
+let rim_bossa = s("[~ ~ rim] [~ ~ rim] [~ ~ rim] [~ ~ rim]")
+  .fast(2)
   .bank("LinnDrum")
   .gain(0.16)
   .room(0.18)
@@ -199,7 +259,12 @@ stack(
   s("~ sd ~ sd").bank("RolandTR909").gain(0.72),
   s("hh*8").bank("RolandTR909").gain(0.16),
 
-  note("<c2*4 g1*4 a1*4 f1*4>")
+  cat(
+    note("c2*4"),
+    note("g1*4"),
+    note("a1*4"),
+    note("f1*4"),
+  )
     .s("gm_electric_bass_pick")
     .clip(0.95)
     .gain(0.34),
@@ -226,7 +291,12 @@ stack(
     .bank("SequentialCircuitsDrumtracks")
     .gain(0.13),
 
-  note("<c2*4 bb1*4 ab1*4 g1*4>")
+  cat(
+    note("c2*4"),
+    note("bb1*4"),
+    note("ab1*4"),
+    note("g1*4"),
+  )
     .s("gm_electric_bass_pick")
     .lpf(1600)
     .clip(0.95)
@@ -254,12 +324,10 @@ stack(
     .bank("SequentialCircuitsDrumtracks")
     .gain(0.12),
 
-  "<0@3 1 0 1@2 0@2 0*2 [2@9 3@3]@2 0 [0 ~@7]>/8"
-    .pickRestart([
-      n("<0!3 [2 3] 4*2 4!2 3 5!3 [4 5] 7*2 7!2 6>*2"),
-      n("<[0*2 0!2 [2 3]]!2 [4*2 4!2 [3 2]] [5 6 7 8]>"),
-    ])
-    .scale("e1:minor")
+  cat(
+    n("0 1 0 1 0 0 [2 3] 0").scale("e1:minor"),
+    n("0 [2 3] 4 4 3 5 [4 5] 7").scale("e1:minor"),
+  )
     .s("gm_electric_bass_pick")
     .lpf(1500)
     .clip(0.95)
@@ -286,12 +354,12 @@ let drums_jazz = stack(
     .gain(0.12),
 )
 
-let bass_jazz = note("<d2 a1 g1 d1 c2 g1 f1 c1>")
+let bass_jazz = note("d2 a1 g1 d1 c2 g1 f1 c1")
   .s("gm_fretless_bass")
   .lpf(1200)
   .gain(0.28)
 
-let piano_jazz = note("<[d4,f4,a4,c5] ~ [g3,b3,d4,f4] ~ [c4,e4,g4,bb4] ~ [f3,a3,c4,eb4] ~>")
+let piano_jazz = note("[d4,f4,a4,c5] ~ [g3,b3,d4,f4] ~ [c4,e4,g4,bb4] ~ [f3,a3,c4,eb4] ~")
   .s("piano")
   .attack(0.03)
   .release(0.22)
@@ -362,7 +430,7 @@ The agent should learn to define one harmonic source before layering.
 
 Runtime note:
 - if symbolic chord names do not voice reliably, use explicit chord-note patterns instead
-- prefer a real note source such as `"<[c4,eb4,g4] [ab3,c4,eb4]>/4"` over unsupported chord labels
+- prefer a real note source such as `note("[c4,eb4,g4] [ab3,c4,eb4]")` over unsupported chord labels
 - keep the composition method the same even when the harmony source must be explicit
 - do not pass explicit voiced-note patterns back through `.chord(...).voicing()`
 - pick one lane:
@@ -376,7 +444,7 @@ Harmony reference examples:
 One progression drives low root support, a mid string bed, and a light upper motion layer.
 
 ```js
-let low_1 = note("<g2 e2 a2 g2>/4")
+let low_1 = note("g2 e2 a2 g2")
   .s("gm_accordion")
   .lpf(2400)
   .attack(0.08)
@@ -385,7 +453,7 @@ let low_1 = note("<g2 e2 a2 g2>/4")
   .cpm(64)
   .gain(0.18)
 
-let bed_1 = note("<[a3,c4,e4] [e3,g3,b3] [f3,a3,c4] [g3,b3,d4]>/4")
+let bed_1 = note("[a3,c4,e4] [e3,g3,b3] [f3,a3,c4] [g3,b3,d4]")
   .s("gm_string_ensemble_1")
   .lpf(3000)
   .attack(0.12)
@@ -394,7 +462,7 @@ let bed_1 = note("<[a3,c4,e4] [e3,g3,b3] [f3,a3,c4] [g3,b3,d4]>/4")
   .cpm(64)
   .gain(0.42)
 
-let high_1 = note("<~ a4 g4 ~ g4 e4>/4")
+let high_1 = note("~ a4 g4 ~ g4 e4")
   .s("gm_oboe")
   .lpf(3400)
   .attack(0.1)
@@ -411,9 +479,9 @@ stack(low_1, bed_1, high_1)
 One progression drives bass, pad, and synth roles while the drums stay simple and repetitive.
 
 ```js
-let prog_techno = "<Cm Ab>/4"
+let prog_techno = cat("Cm", "Ab")
 let groove_techno = "bd*4"
-let motif_techno = "<0 ~ [1 0] ~>/4"
+let motif_techno = "0 ~ [1 0] ~"
 
 let kick_techno = s(groove_techno)
   .bank("RolandTR909")
@@ -474,7 +542,12 @@ Melody reference examples:
 Long melodic line with mostly sustained phrasing and a few quick inner-note turns.
 
 ```js
-let melody_1 = n("<[0@3 1@2.5 [2 1]@0.5 2@2 3@4] [4@2 3@1.5 [2 3]@0.5 2@2 1@2 0@4] [2@3 1@2.5 [0 1]@0.5 0@6]!2>/4")
+let melody_1 = cat(
+  n("0@3 1@2.5 [2 1]@0.5 2@2 3@4"),
+  n("4@2 3@1.5 [2 3]@0.5 2@2 1@2 0@4"),
+  n("2@3 1@2.5 [0 1]@0.5 0@6"),
+  n("2@3 1@2.5 [0 1]@0.5 0@6"),
+)
   .scale("d4:minor")
   .s("gm_oboe")
   .lpf(3600)
@@ -491,7 +564,12 @@ let melody_1 = n("<[0@3 1@2.5 [2 1]@0.5 2@2 3@4] [4@2 3@1.5 [2 3]@0.5 2@2 1@2 0@
 Long melodic line with a more dance-like contour and small ornamental turns.
 
 ```js
-let melody_2 = n("<[0@2 2@1.5 [3 2]@0.5 3@2 2@2 1@2 0@2] [3@2.5 [4 3]@0.5 4@1 3@2 2@2 1@2 0@2] [2@2 1@1.5 [-1 0]@0.5 -1@2 0@6]!2>/4")
+let melody_2 = cat(
+  n("0@2 2@1.5 [3 2]@0.5 3@2 2@2 1@2 0@2"),
+  n("3@2.5 [4 3]@0.5 4@1 3@2 2@2 1@2 0@2"),
+  n("2@2 1@1.5 [-1 0]@0.5 -1@2 0@6"),
+  n("2@2 1@1.5 [-1 0]@0.5 -1@2 0@6"),
+)
   .scale("g4:minor")
   .s("gm_clarinet")
   .lpf(3400)
@@ -525,7 +603,68 @@ Examples of derived roles:
 Core rule:
 - prefer several coherent role tracks derived from one source idea over unrelated independent layers
 
+This is one of the main composition methods in Strudel Studio.
+
+Shared-source writing should usually be preferred over:
+- unrelated independent layers
+- random lead writing on top of unrelated harmony
+- copying a full example without breaking it into roles
+
+Example:
+
+```js
+let prog = note("[a3,c4,e4] [f3,a3,c4] [c4,e4,g4] [g3,b3,d4]")
+
+let low = note("a1 ~ a1 ~ f1 ~ f1 ~ c2 ~ c2 ~ g1 ~ g1 ~")
+  .s("gm_synth_bass_1")
+  .lpf(950)
+  .clip(0.95)
+  .gain(0.28)
+
+let bed = prog
+  .s("gm_pad_warm")
+  .attack(0.2)
+  .release(0.7)
+  .lpf(3000)
+  .room(0.5)
+  .gain(0.18)
+
+let high = cat(
+  note("e5 ~ g5 a5 ~ g5 ~ e5 ~ c5"),
+  note("~ b4 g4 ~ e5 ~ d5 ~ b4"),
+)
+  .s("gm_lead_2_sawtooth")
+  .attack(0.05)
+  .release(0.16)
+  .lpf(3200)
+  .room(0.4)
+  .gain(0.14)
+
+stack(low, bed, high)
+```
+
+Break it into roles like this:
+- `low`
+  root support and pulse
+- `bed`
+  harmonic body
+- `high`
+  phrase identity and answer motion
+
+Good transformations:
+- keep `bed`, rewrite `high`
+- keep `high` rhythm, rewrite its intervals
+- keep `low` rhythm, change only root motion
+- split `high` into two smaller answer blocks and reorder them
+
 ### 11. Bass-Led Composition
+
+This is one of the most important section-building methods in this project.
+
+Use it when:
+- the section needs a strong engine
+- the harmony should be implied more than stated
+- the track should feel driven before the top line arrives
 
 Teach that the bass can be the engine of a section.
 
@@ -539,12 +678,11 @@ This is useful when the section should feel driven without thick chord writing.
 Example:
 
 ```js
-let bass = "<0@3 1 0 1@2 0@2 0*2 [2@9 3@3]@2 0 [0 ~@7]>/8"
-  .pickRestart([
-    n("<0!3 [2 3] 4*2 4!2 3 5!3 [4 5] 7*2 7!2 6>*2"),
-    n("<[0*2 0!2 [2 3]]!2 [4*2 4!2 [3 2]] [5 6 7 8]>"),
-    n("<[~ 0 4!2]!2 [~ 0 3!2] [~ -1 2!2] [0!2 5!2]>*2"),
-  ])
+let bass = cat(
+  n("0 1 0 1 0 0 [2 3] 0"),
+  n("0 [2 3] 4 4 3 5 [4 5] 7"),
+  n("0 0 [2 3] 4 4 [3 2] 5 6"),
+)
   .scale("c2:minor")
   .s("gm_synth_bass_1")
   .lpf(700)
@@ -555,6 +693,7 @@ let bass = "<0@3 1 0 1@2 0@2 0*2 [2@9 3@3]@2 0 [0 ~@7]>/8"
 Teaching point:
 - stable rhythm plus changing pitch family creates motion without losing identity
 - this works well for synth-driven, post-punk, and minimal groove sections
+- bass-led writing is often a better starting point than writing pad plus lead first
 
 ### 12. Moving-Anchor Voicing
 
@@ -570,17 +709,17 @@ This is useful when block chords feel static but a full rewritten melody is unne
 Example:
 
 ```js
-let bed = note("<[a3,c4,e4] [f3,a3,c4] [d3,f3,a3] [e3,g#3,b3]>/4")
+let bed = note("[a3,c4,e4] [f3,a3,c4] [d3,f3,a3] [e3,g#3,b3]")
   .s("gm_drawbar_organ")
   .clip(1)
   .gain(0.24)
 
-let color = note("<[e5,a5,c6] [c5,f5,a5] [d5,f5,a5] [b4,e5,g#5]>/4")
+let color = note("[e5,a5,c6] [c5,f5,a5] [d5,f5,a5] [b4,e5,g#5]")
   .s("gm_violin")
   .clip(1)
   .gain(0.16)
 
-let bass = note("<a2 f2 d2 e2>/4")
+let bass = note("a2 f2 d2 e2")
   .struct("x*2")
   .s("gm_electric_bass_finger")
   .clip(1)
@@ -617,13 +756,13 @@ In canonical song files, shared-source composition should map into track roles c
 Example shape:
 
 ```js
-let track_section_a_low = note("<a2 f2 c2 g2>/4")
+let track_section_a_low = note("a2 f2 c2 g2")
   .s("gm_synth_bass_1")
 
-let track_section_a_bed = note("<[a3,c4,e4] [f3,a3,c4] [c4,e4,g4] [g3,b3,d4]>/4")
+let track_section_a_bed = note("[a3,c4,e4] [f3,a3,c4] [c4,e4,g4] [g3,b3,d4]")
   .s("gm_pad_warm")
 
-let track_section_a_high = note("<e5 ~ d5 ~ c5 ~ b4 ~>/4")
+let track_section_a_high = note("e5 ~ d5 ~ c5 ~ b4 ~")
   .s("gm_oboe")
 
 let section_section_a = stack(
