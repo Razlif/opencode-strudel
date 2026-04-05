@@ -1,0 +1,9 @@
+basic-pitch
+fastapi
+librosa
+numpy
+pretty_midi
+pyloudnorm
+python-multipart
+soundfile
+uvicorn

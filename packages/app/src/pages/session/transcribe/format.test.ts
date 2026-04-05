@@ -84,7 +84,7 @@ describe("strudel melody clean", () => {
 })
 
 describe("strudel melody format", () => {
-  test("emits duration-aware note code", () => {
+  test("emits beat-slot explicit note code", () => {
     const out = format(
       [
         { midi: 62, start: 0, len: 2 },
@@ -92,10 +92,12 @@ describe("strudel melody format", () => {
         { midi: 65, start: 4, len: 3 },
       ],
       8,
+      1,
+      4,
     )
 
     expect(out).toBe(
-      `note("<d4@2 ~ e4 f4@3 ~>").s("piano").clip(1).attack(0.03).release(0.12).gain(0.5)`,
+      `note("d4 e4 f4 ~").s("triangle")`,
     )
   })
 })

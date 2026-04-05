@@ -41,5 +41,6 @@ phrase*.json
 result*.json
 raw*.csv
 script/strudel/melody-runs/
+script/strudel/melody-runs-bp/
 script/strudel/__pycache__/
 packages/app/public/basic-pitch/

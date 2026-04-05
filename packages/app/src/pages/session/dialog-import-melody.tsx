@@ -1,24 +1,54 @@
 import { Button } from "@opencode-ai/ui/button"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { createSignal, For, onCleanup, Show } from "solid-js"
-import { clean } from "@/pages/session/transcribe/clean"
 import { capturePlan } from "@/pages/session/transcribe/capture-timing"
-import { decode } from "@/pages/session/transcribe/decode"
-import { format } from "@/pages/session/transcribe/format"
-import { transcribeTake } from "@/pages/session/transcribe/melody-api"
+import { transcribeFile, transcribeTake, type BasicPitchOverrides, type MelodyResult, type TranscribePreset } from "@/pages/session/transcribe/melody-api"
 import { click } from "@/pages/session/transcribe/metronome"
 import { record } from "@/pages/session/transcribe/record-melody"
-import { analyze, transcribe } from "@/pages/session/transcribe/basic-pitch"
-import type { GridNote, NoteEvent, PitchOpts, PitchRaw } from "@/pages/session/transcribe/types"
+import type { GridNote, NoteEvent } from "@/pages/session/transcribe/types"
 
 const names = ["c", "c#", "d", "eb", "e", "f", "f#", "g", "ab", "a", "bb", "b"]
 const tone = (n: number) => `${names[n % 12]}${Math.floor(n / 12) - 1}`
 const sec = (n: number) => n.toFixed(2)
+const STEPS_PER_BAR = 16
+const COUNT_IN_BARS = 2
 const presets = {
-  Balanced: { onset: 0.3, frame: 0.3, min: 8, infer: true, melodia: false, energy: 11, minFreq: 110, maxFreq: 900 },
-  Strict: { onset: 0.35, frame: 0.35, min: 10, infer: true, melodia: false, energy: 9, minFreq: 130, maxFreq: 900 },
-  Legato: { onset: 0.28, frame: 0.25, min: 8, infer: true, melodia: false, energy: 14, minFreq: 110, maxFreq: 900 },
-} satisfies Record<string, PitchOpts>
+  "Auto Analyze": "auto_analyze_audio",
+  Balanced: "balanced",
+  "Solo Vocals": "solo_vocals",
+} satisfies Record<string, TranscribePreset>
+const presetSettings: Record<keyof typeof presets, Required<BasicPitchOverrides>> = {
+  "Auto Analyze": {
+    onset_threshold: 0.5,
+    frame_threshold: 0.3,
+    minimum_note_length: 128,
+    minimum_frequency: 60,
+    maximum_frequency: 4000,
+    infer_onsets: true,
+    melodia_trick: true,
+    multiple_pitch_bends: false,
+  },
+  Balanced: {
+    onset_threshold: 0.5,
+    frame_threshold: 0.3,
+    minimum_note_length: 128,
+    minimum_frequency: 60,
+    maximum_frequency: 4000,
+    infer_onsets: true,
+    melodia_trick: true,
+    multiple_pitch_bends: false,
+  },
+  "Solo Vocals": {
+    onset_threshold: 0.4,
+    frame_threshold: 0.3,
+    minimum_note_length: 100,
+    minimum_frequency: 80,
+    maximum_frequency: 1200,
+    infer_onsets: true,
+    melodia_trick: true,
+    multiple_pitch_bends: true,
+  },
+}
 const rawText = (list: NoteEvent[]) =>
   list
     .slice(0, 24)
@@ -53,13 +83,18 @@ export function DialogImportMelody(props: {
   const [err, setErr] = createSignal("")
   const [note, setNote] = createSignal("")
   const [code, setCode] = createSignal("")
-  const [steps, setSteps] = createSignal("32")
   const [bars, setBars] = createSignal("2")
-  const [count, setCount] = createSignal("1")
-  const [monitor, setMonitor] = createSignal<"click" | "song" | "silent">("click")
-  const [pick, setPick] = createSignal<keyof typeof presets>("Balanced")
-  const [opts, setOpts] = createSignal<PitchOpts>(presets.Balanced)
-  const [core, setCore] = createSignal<PitchRaw>()
+  const [pick, setPick] = createSignal<keyof typeof presets>("Solo Vocals")
+  const [separateVocals, setSeparateVocals] = createSignal(false)
+  const [showAdvanced, setShowAdvanced] = createSignal(false)
+  const [onsetThreshold, setOnsetThreshold] = createSignal(String(presetSettings["Solo Vocals"].onset_threshold))
+  const [frameThreshold, setFrameThreshold] = createSignal(String(presetSettings["Solo Vocals"].frame_threshold))
+  const [minimumNoteLength, setMinimumNoteLength] = createSignal(String(presetSettings["Solo Vocals"].minimum_note_length))
+  const [minimumFrequency, setMinimumFrequency] = createSignal(String(presetSettings["Solo Vocals"].minimum_frequency))
+  const [maximumFrequency, setMaximumFrequency] = createSignal(String(presetSettings["Solo Vocals"].maximum_frequency))
+  const [inferOnsets, setInferOnsets] = createSignal(presetSettings["Solo Vocals"].infer_onsets)
+  const [melodiaTrick, setMelodiaTrick] = createSignal(presetSettings["Solo Vocals"].melodia_trick)
+  const [multiplePitchBends, setMultiplePitchBends] = createSignal(presetSettings["Solo Vocals"].multiple_pitch_bends)
   const [raw, setRaw] = createSignal<NoteEvent[]>([])
   const [grid, setGrid] = createSignal<GridNote[]>([])
   const [meta, setMeta] = createSignal({
@@ -81,6 +116,21 @@ export function DialogImportMelody(props: {
     lag: number
   }>()
 
+  const resetResult = () => {
+    setErr("")
+    setNote("")
+    setCode("")
+    setRaw([])
+    setGrid([])
+    setMeta({
+      raw: 0,
+      kept: 0,
+      dropped: 0,
+      cropped: 0,
+      collisions: 0,
+    })
+  }
+
   const dropClip = () => {
     const url = clip()?.url
     if (url) URL.revokeObjectURL(url)
@@ -89,47 +139,79 @@ export function DialogImportMelody(props: {
 
   onCleanup(dropClip)
 
-  const build = (list: NoteEvent[], value = Number(steps()) || 32, span = Number(bars()) || 2) => {
-    const next = clean(list, props.bpm, props.div, value, span)
-    setGrid(next.notes)
+  const applyPreset = (name: keyof typeof presets) => {
+    const hit = presetSettings[name]
+    setPick(name)
+    setOnsetThreshold(String(hit.onset_threshold))
+    setFrameThreshold(String(hit.frame_threshold))
+    setMinimumNoteLength(String(hit.minimum_note_length))
+    setMinimumFrequency(String(hit.minimum_frequency))
+    setMaximumFrequency(String(hit.maximum_frequency))
+    setInferOnsets(hit.infer_onsets)
+    setMelodiaTrick(hit.melodia_trick)
+    setMultiplePitchBends(hit.multiple_pitch_bends)
+  }
+
+  const basicPitch = (): BasicPitchOverrides => ({
+    onset_threshold: Number(onsetThreshold()),
+    frame_threshold: Number(frameThreshold()),
+    minimum_note_length: Number(minimumNoteLength()),
+    minimum_frequency: Number(minimumFrequency()),
+    maximum_frequency: Number(maximumFrequency()),
+    infer_onsets: inferOnsets(),
+    melodia_trick: melodiaTrick(),
+    multiple_pitch_bends: multiplePitchBends(),
+  })
+
+  const applyResult = (hit: MelodyResult) => {
+    const list = hit.segmented_notes.map((item) => ({
+      midi: item.midi,
+      startSec: item.start_sec,
+      durationSec: item.dur_sec,
+      confidence: item.confidence,
+    }))
+    const nextGrid = hit.quantized_notes.map((item) => ({
+      midi: item.midi,
+      start: item.start_step,
+      len: item.len_steps,
+      confidence: item.confidence,
+    }))
+    setRaw(list)
+    setGrid(nextGrid)
     setMeta({
-      raw: list.length,
-      kept: next.notes.length,
-      dropped: next.dropped,
-      cropped: next.cropped,
-      collisions: next.collisions,
+      raw: hit.segmented_notes.length,
+      kept: hit.quantized_notes.length,
+      dropped: Math.max(0, hit.segmented_notes.length - hit.quantized_notes.length),
+      cropped: hit.summary.cropped_notes,
+      collisions: hit.summary.quantized_collisions_dropped,
     })
-    if (!next.notes.length) {
+    if (!hit.quantized_notes.length) {
       setCode("")
       setErr("No usable melody notes were found in the selected phrase length.")
       return
     }
     setErr("")
-    setNote("")
-    setCode(format(next.notes, value, span))
+    setCode(hit.strudel)
+    setNote(
+      `Backend ready. Preset: ${hit.used_config?.preset ?? presets[pick()]}. Contour: ${hit.contour.quantized || hit.contour.segmented}. JSON: ${hit.latest_json ?? hit.debug_json ?? "saved on server"}`,
+    )
   }
 
-  const retune = (raw: PitchRaw, next = opts()) => {
-    const list = transcribe(raw, next)
-    setRaw(list)
-    build(list)
-  }
-
-  const load = (file: File) => {
+  const submitFile = (file: File, origin = 0) => {
     setBusy(true)
-    setErr("")
-    setNote("")
-    setCode("")
-    setCore()
-    setRaw([])
-    setGrid([])
-    dropClip()
-    decode(file)
-      .then(analyze)
-      .then((raw) => {
-        setCore(raw)
-        retune(raw)
-      })
+    resetResult()
+    setNote("Sending audio to local melody backend...")
+    transcribeFile(file, {
+      bpm: props.bpm,
+      div: props.div,
+      bars: Number(bars()) || 2,
+      steps: STEPS_PER_BAR,
+      origin,
+      preset: presets[pick()],
+      separateVocals: separateVocals(),
+      basicPitch: basicPitch(),
+    })
+      .then(applyResult)
       .catch((err) => {
         setErr(err instanceof Error ? err.message : String(err))
       })
@@ -140,14 +222,13 @@ export function DialogImportMelody(props: {
 
   const take = () => {
     const span = Number(bars()) || 2
-    const prep = Number(count()) || 1
+    const prep = COUNT_IN_BARS
     const plan = capturePlan(props.bpm, props.div, span, prep)
-    const met = monitor() === "silent" ? undefined : click({ bpm: props.bpm, div: props.div, bars: span + 1, count: prep, lead: plan.lead })
+    const met = click({ bpm: props.bpm, div: props.div, bars: span + 1, count: prep, lead: plan.lead })
     setBusy(true)
     setErr("")
     setNote(`Count-in started. Recording will begin in ${plan.count_in.toFixed(2)}s. Guard bars: ${plan.pre.toFixed(2)}s before and ${plan.post.toFixed(2)}s after. Phrase ${plan.phrase.toFixed(2)}s.`)
     setCode("")
-    setCore()
     setRaw([])
     setGrid([])
     setFile()
@@ -196,39 +277,13 @@ export function DialogImportMelody(props: {
       bpm: props.bpm,
       div: props.div,
       bars: span,
-      steps: Number(steps()) || 32,
+      steps: STEPS_PER_BAR,
       origin: item.origin,
+      preset: presets[pick()],
+      separateVocals: separateVocals(),
+      basicPitch: basicPitch(),
     })
-      .then((hit) => {
-        const list = hit.segmented_notes.map((item) => ({
-          midi: item.midi,
-          startSec: item.start_sec,
-          durationSec: item.dur_sec,
-          confidence: item.confidence,
-        }))
-        const grid = hit.quantized_notes.map((item) => ({
-          midi: item.midi,
-          start: item.start_step,
-          len: item.len_steps,
-          confidence: item.confidence,
-        }))
-        setRaw(list)
-        setGrid(grid)
-        setMeta({
-          raw: hit.segmented_notes.length,
-          kept: hit.quantized_notes.length,
-          dropped: Math.max(0, hit.segmented_notes.length - hit.quantized_notes.length),
-          cropped: hit.summary.cropped_notes,
-          collisions: hit.summary.quantized_collisions_dropped,
-        })
-        setCode(hit.strudel)
-        setErr("")
-        setNote(
-          monitor() === "song"
-            ? `Backend ready. Contour: ${hit.contour.quantized || hit.contour.segmented}. JSON: ${hit.latest_json ?? hit.debug_json ?? "saved on server"}. CSV: ${hit.latest_csv ?? hit.debug_csv ?? "saved on server"}. Song monitor is not wired yet, so this take used click timing only.`
-            : `Backend ready. Contour: ${hit.contour.quantized || hit.contour.segmented}. JSON: ${hit.latest_json ?? hit.debug_json ?? "saved on server"}. CSV: ${hit.latest_csv ?? hit.debug_csv ?? "saved on server"}`,
-        )
-      })
+      .then(applyResult)
       .catch((err) => {
         setErr(err instanceof Error ? err.message : String(err))
       })
@@ -250,7 +305,7 @@ export function DialogImportMelody(props: {
           </span>
           <span class="text-12-regular text-text-weak">
             {mode() === "record"
-              ? "Recording uses the current BPM and beats-per-cycle, with a short pre-roll before beat 1 for cleaner onset detection."
+              ? "Recording uses the current BPM and beats-per-cycle, then sends the clip to the local Basic Pitch backend using the selected transcription profile."
               : "The import uses the current BPM and beats-per-cycle and maps the phrase into the selected bar length."}
           </span>
         </div>
@@ -267,82 +322,74 @@ export function DialogImportMelody(props: {
           <div class="flex flex-wrap gap-2">
             <For each={Object.keys(presets) as (keyof typeof presets)[]}>
               {(name) => (
-                <Button
-                  size="small"
-                  variant={pick() === name ? "primary" : "ghost"}
-                  onClick={() => {
-                    setPick(name)
-                    setOpts(presets[name])
-                    const raw = core()
-                    if (raw) retune(raw, presets[name])
-                  }}
-                >
+                <Button size="small" variant={pick() === name ? "primary" : "ghost"} onClick={() => applyPreset(name)}>
                   {name}
                 </Button>
               )}
             </For>
           </div>
         </div>
-        <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-          <span>Grid/Bar</span>
-          <input
-            inputMode="numeric"
-            value={steps()}
-            onInput={(event) => setSteps(event.currentTarget.value)}
-            onBlur={() => {
-              if (!raw().length) return
-              build(raw())
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return
-              event.currentTarget.blur()
-            }}
-            class="h-8 w-12 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-          />
-        </label>
-        <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-          <span>Bars</span>
-          <select
-            value={bars()}
-            onChange={(event) => {
-              setBars(event.currentTarget.value)
-              if (!raw().length) return
-              build(raw())
-            }}
-            class="h-8 w-14 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-          >
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="4">4</option>
-          </select>
-        </label>
-        <Show when={mode() === "record"}>
-          <div class="grid grid-cols-2 gap-2">
+        <div class="flex flex-wrap items-center gap-4">
+          <label class="flex items-center gap-2 text-12-regular text-text-weaker">
+            <input type="checkbox" checked={separateVocals()} onChange={(event) => setSeparateVocals(event.currentTarget.checked)} />
+            <span>Separate vocals first</span>
+          </label>
+          <Button size="small" variant="ghost" onClick={() => setShowAdvanced((value) => !value)}>
+            {showAdvanced() ? "Hide advanced" : "Show advanced"}
+          </Button>
+        </div>
+        <Show when={showAdvanced()}>
+          <div class="grid gap-3 rounded-md border border-border-weak-base bg-background-base px-3 py-3 xl:grid-cols-2">
             <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Count-in Bars</span>
-              <select
-                value={count()}
-                onChange={(event) => setCount(event.currentTarget.value)}
-                class="h-8 w-14 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              >
-                <option value="1">1</option>
-                <option value="2">2</option>
-              </select>
+              <span>Onset</span>
+              <input value={onsetThreshold()} onInput={(event) => setOnsetThreshold(event.currentTarget.value)} class="h-8 w-16 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none" />
             </label>
             <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Monitor</span>
-              <select
-                value={monitor()}
-                onChange={(event) => setMonitor(event.currentTarget.value as "click" | "song" | "silent")}
-                class="h-8 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              >
-                <option value="click">click</option>
-                <option value="song">click + song</option>
-                <option value="silent">silent</option>
-              </select>
+              <span>Frame</span>
+              <input value={frameThreshold()} onInput={(event) => setFrameThreshold(event.currentTarget.value)} class="h-8 w-16 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none" />
             </label>
+            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
+              <span>Min length ms</span>
+              <input value={minimumNoteLength()} onInput={(event) => setMinimumNoteLength(event.currentTarget.value)} class="h-8 w-20 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none" />
+            </label>
+            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
+              <span>Min freq</span>
+              <input value={minimumFrequency()} onInput={(event) => setMinimumFrequency(event.currentTarget.value)} class="h-8 w-20 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none" />
+            </label>
+            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
+              <span>Max freq</span>
+              <input value={maximumFrequency()} onInput={(event) => setMaximumFrequency(event.currentTarget.value)} class="h-8 w-20 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none" />
+            </label>
+            <div class="flex flex-wrap items-center gap-4 text-12-regular text-text-weaker">
+              <label class="flex items-center gap-2">
+                <input type="checkbox" checked={inferOnsets()} onChange={(event) => setInferOnsets(event.currentTarget.checked)} />
+                <span>Infer onsets</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" checked={melodiaTrick()} onChange={(event) => setMelodiaTrick(event.currentTarget.checked)} />
+                <span>Melodia</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" checked={multiplePitchBends()} onChange={(event) => setMultiplePitchBends(event.currentTarget.checked)} />
+                <span>Pitch bends</span>
+              </label>
+            </div>
           </div>
         </Show>
+        <div class="flex flex-wrap items-center gap-4">
+          <label class="flex items-center gap-2 text-12-regular text-text-weaker">
+            <span>Bars</span>
+            <select
+              value={bars()}
+              onChange={(event) => setBars(event.currentTarget.value)}
+              class="h-8 w-14 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
+            >
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+        </div>
         <Show when={mode() === "upload"}>
           <label class="flex flex-col gap-2">
             <span class="text-12-regular text-text-weaker">Audio file</span>
@@ -351,10 +398,10 @@ export function DialogImportMelody(props: {
               accept=".wav,.mp3,.ogg,.flac,audio/*"
               class="rounded-md border border-border-weak-base bg-background-base px-3 py-2 text-12-regular text-text-strong"
               onInput={(event) => {
-                const file = event.currentTarget.files?.[0]
-                setFile(file)
-                if (!file) return
-                load(file)
+                const next = event.currentTarget.files?.[0]
+                setFile(next)
+                if (!next) return
+                submitFile(next)
               }}
             />
           </label>
@@ -362,14 +409,14 @@ export function DialogImportMelody(props: {
         <Show when={mode() === "record"}>
           <div class="flex flex-col gap-2 rounded-md border border-border-weak-base bg-background-base px-3 py-3">
             <div class="text-12-regular text-text-weaker">
-              Use headphones if possible. Record mode quantizes from beat 1 inside the clip, not from the first detected note.
+              Use headphones if possible. Record mode uses a fixed two-bar count-in, always keeps one extra trailing bar, and quantizes to a fixed 16-step grid from beat 1 inside the clip.
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="text-12-regular text-text-weaker">
-                Phrase: {capturePlan(props.bpm, props.div, Number(bars()) || 2, Number(count()) || 1).phrase.toFixed(2)}s, guard bars:{" "}
-                {capturePlan(props.bpm, props.div, Number(bars()) || 2, Number(count()) || 1).pre.toFixed(2)}s before,{" "}
-                {capturePlan(props.bpm, props.div, Number(bars()) || 2, Number(count()) || 1).post.toFixed(2)}s after, count-in:{" "}
-                {capturePlan(props.bpm, props.div, Number(bars()) || 2, Number(count()) || 1).count_in.toFixed(2)}s
+                Phrase: {capturePlan(props.bpm, props.div, Number(bars()) || 2, COUNT_IN_BARS).phrase.toFixed(2)}s, guard bars:{" "}
+                {capturePlan(props.bpm, props.div, Number(bars()) || 2, COUNT_IN_BARS).pre.toFixed(2)}s before,{" "}
+                {capturePlan(props.bpm, props.div, Number(bars()) || 2, COUNT_IN_BARS).post.toFixed(2)}s after, count-in:{" "}
+                {capturePlan(props.bpm, props.div, Number(bars()) || 2, COUNT_IN_BARS).count_in.toFixed(2)}s, grid: {STEPS_PER_BAR} steps/bar
               </div>
               <Button size="small" variant="primary" disabled={busy()} onClick={take}>
                 {busy() ? "Recording..." : "Start Recording"}
@@ -379,138 +426,24 @@ export function DialogImportMelody(props: {
               {(item) => (
                 <div class="min-w-0 overflow-hidden rounded-md border border-success-base/40 bg-success-base/10 px-3 py-2 text-12-regular text-success-base">
                   <div class="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                  <div class="min-w-0">
-                    <div class="break-all">
-                      Clip captured: {(item().size / 1024).toFixed(1)} KB, {item().dur.toFixed(2)}s, {item().type || "audio blob"}
+                    <div class="min-w-0">
+                      <div class="break-all">
+                        Clip captured: {(item().size / 1024).toFixed(1)} KB, {item().dur.toFixed(2)}s, {item().type || "audio blob"}
+                      </div>
+                      <audio controls src={item().url} class="mt-2 block w-full max-w-full min-w-0" />
                     </div>
-                    <audio controls src={item().url} class="mt-2 block w-full max-w-full min-w-0" />
-                  </div>
-                  <div class="flex min-w-0 flex-wrap justify-end gap-2 lg:self-end">
-                    <Button size="small" variant="ghost" disabled={busy()} onClick={take}>
-                      Retake
-                    </Button>
-                    <Button size="small" variant="primary" disabled={busy()} onClick={submitTake}>
-                      {busy() ? "Sending..." : "Send To Backend"}
-                    </Button>
-                  </div>
+                    <div class="flex min-w-0 flex-wrap justify-end gap-2 lg:self-end">
+                      <Button size="small" variant="ghost" disabled={busy()} onClick={take}>
+                        Retake
+                      </Button>
+                      <Button size="small" variant="primary" disabled={busy()} onClick={submitTake}>
+                        {busy() ? "Sending..." : "Send To Backend"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
             </Show>
-          </div>
-        </Show>
-        <Show when={mode() === "upload"}>
-          <div class="grid grid-cols-4 gap-2">
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Onset</span>
-              <input
-                inputMode="decimal"
-                value={String(opts().onset)}
-                onBlur={(event) => {
-                  const next = { ...opts(), onset: Number(event.currentTarget.value) || opts().onset }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-                class="h-8 w-14 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              />
-            </label>
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Frame</span>
-              <input
-                inputMode="decimal"
-                value={String(opts().frame)}
-                onBlur={(event) => {
-                  const next = { ...opts(), frame: Number(event.currentTarget.value) || opts().frame }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-                class="h-8 w-14 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              />
-            </label>
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Min Frames</span>
-              <input
-                inputMode="numeric"
-                value={String(opts().min)}
-                onBlur={(event) => {
-                  const next = { ...opts(), min: Number(event.currentTarget.value) || opts().min }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-                class="h-8 w-14 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              />
-            </label>
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Min Freq</span>
-              <input
-                inputMode="numeric"
-                value={String(opts().minFreq ?? "")}
-                onBlur={(event) => {
-                  const next = { ...opts(), minFreq: Number(event.currentTarget.value) || undefined }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-                class="h-8 w-16 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              />
-            </label>
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Max Freq</span>
-              <input
-                inputMode="numeric"
-                value={String(opts().maxFreq ?? "")}
-                onBlur={(event) => {
-                  const next = { ...opts(), maxFreq: Number(event.currentTarget.value) || undefined }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-                class="h-8 w-16 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              />
-            </label>
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <span>Energy</span>
-              <input
-                inputMode="numeric"
-                value={String(opts().energy ?? "")}
-                onBlur={(event) => {
-                  const next = { ...opts(), energy: Number(event.currentTarget.value) || undefined }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-                class="h-8 w-16 rounded-md border border-border-weak-base bg-background-base px-2 text-12-regular text-text-strong outline-none"
-              />
-            </label>
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <input
-                type="checkbox"
-                checked={opts().infer}
-                onChange={(event) => {
-                  const next = { ...opts(), infer: event.currentTarget.checked }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-              />
-              <span>Infer Onsets</span>
-            </label>
-            <label class="flex items-center gap-2 text-12-regular text-text-weaker">
-              <input
-                type="checkbox"
-                checked={opts().melodia}
-                onChange={(event) => {
-                  const next = { ...opts(), melodia: event.currentTarget.checked }
-                  setOpts(next)
-                  const raw = core()
-                  if (raw) retune(raw, next)
-                }}
-              />
-              <span>Melodia Trick</span>
-            </label>
           </div>
         </Show>
         <div class="grid grid-cols-5 gap-2 rounded-md border border-border-weak-base bg-background-base px-3 py-2 text-12-regular text-text-weaker">
@@ -564,12 +497,7 @@ export function DialogImportMelody(props: {
           <Button variant="ghost" size="large" onClick={props.onClose}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            size="large"
-            disabled={(!file() && mode() === "upload") || !code() || busy()}
-            onClick={() => props.onInsert(code(), meta())}
-          >
+          <Button variant="primary" size="large" disabled={(!file() && mode() === "upload") || !code() || busy()} onClick={() => props.onInsert(code(), meta())}>
             Insert
           </Button>
         </div>

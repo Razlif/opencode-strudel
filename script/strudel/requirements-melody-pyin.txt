@@ -2,6 +2,14 @@ librosa
 numpy
 scipy
 soundfile
+basic-pitch @ git+https://github.com/avan06/basic-pitch
 fastapi
-uvicorn
+pretty_midi
 python-multipart
+pyloudnorm
+torch
+torchaudio
+demucs
+audio-separator
+ffmpeg-python
+uvicorn
