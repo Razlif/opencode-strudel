@@ -23,7 +23,7 @@ export async function analyze(buf: AudioBuffer): Promise<PitchRaw> {
   const contours: number[][] = []
   await get().evaluateModel(
     buf,
-    (f, o, c) => {
+    (f: number[][], o: number[][], c: number[][]) => {
       frames.push(...f)
       onsets.push(...o)
       contours.push(...c)
