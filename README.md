@@ -64,18 +64,26 @@ bun run dev:web
 
 - `Record Melody` currently depends on an experimental local Python backend.
 - The rest of the app runs without it.
+- The current backend is the Basic Pitch-based server in `script/strudel/melody_bp_server.py`.
 - If you want melody transcription, install Python 3 first:
   - https://www.python.org/downloads/
 - Then install the backend dependencies:
 
 ```bash
-pip install -r script/strudel/requirements-melody-pyin.txt
+pip install -r script/strudel/requirements-melody-bp.txt
 ```
 
 - Start the melody backend in a separate terminal:
 
 ```bash
 python script/strudel/melody-pyin-server.py
+```
+
+- The compatibility entrypoint above now forwards to the current Basic Pitch server.
+- If you prefer, you can also run:
+
+```bash
+python script/strudel/melody_bp_server.py
 ```
 
 ### 5. Get The Workspace Template
