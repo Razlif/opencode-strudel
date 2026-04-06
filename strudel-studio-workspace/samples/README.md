@@ -1,6 +1,6 @@
 # Samples
 
-This folder is for external sample references and curated load snippets.
+This folder is for Strudel Studio sample references and curated load snippets.
 
 Keep here:
 
@@ -12,4 +12,4 @@ Keep here:
 Starter references:
 
 - `sound-banks.md`
-  available built-in sample banks, named instruments, GM sounds, and remote sample entries used by Strudel Studio
+  agent-facing whitelist of supported drum banks, named instruments, GM sounds, runtime pack aliases, and remote named entries used by Strudel Studio

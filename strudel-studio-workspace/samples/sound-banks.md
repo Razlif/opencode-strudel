@@ -1,16 +1,29 @@
-# Sound Banks
+# Strudel Studio Supported Sounds
 
-This file lists the current Strudel Studio runtime sound sources for workspace reference.
+This file is the workspace-facing whitelist for Strudel Studio sounds.
 
-Treat [packages/app/src/pages/session/strudel-runtime.ts](/abs/path/c:/Users/moked/OneDrive/שולחן העבודה/opencode-strudel/packages/app/src/pages/session/strudel-runtime.ts) as the source of truth if this file drifts.
+Use it before writing or editing sample choices in canonical song files.
 
-## Built-In Sample Banks
+If this file ever drifts, treat [`packages/app/src/pages/session/strudel-runtime.ts`](../../packages/app/src/pages/session/strudel-runtime.ts) as the runtime source of truth.
 
-Use these directly in patterns like:
+## Usage Rules
+
+- Do not assume a sound is supported unless it is listed here or explicitly loaded.
+- For session song edits, prefer the built-in sounds listed here over adding new external packs.
+- If you need a remote named entry, include its required `samples("...")` load in the canonical song imports area.
+- When uncertain, verify against the runtime file rather than guessing.
+
+## Built-In Drum Banks
+
+These are the supported drum-bank names exposed by the runtime.
+
+Use bank names like:
 
 ```js
-s("RolandTR909")
+s("bd hh sd hh").bank("RolandTR909")
 ```
+
+Supported drum banks:
 
 - `RolandTR808`
 - `RolandTR909`
@@ -26,13 +39,17 @@ s("RolandTR909")
 - `SequentialCircuitsDrumtracks`
 - `RolandTR606`
 
-## Named Instruments
+## Built-In Named Instruments
 
-Use these directly in patterns like:
+These are directly supported named sounds.
+
+Use named sounds like:
 
 ```js
 s("piano")
 ```
+
+Supported named instruments:
 
 - `piano`
 - `cajon`
@@ -44,13 +61,17 @@ s("piano")
 - `recorder_bass_sus`
 - `psaltery_pluck`
 
-## GM Sounds
+## Built-In GM Sounds
 
-Use these directly in patterns like:
+These GM-style names are available directly in the runtime.
+
+Use GM sounds like:
 
 ```js
 s("gm_piano")
 ```
+
+Supported GM sounds:
 
 - `gm_accordion`
 - `gm_acoustic_guitar_nylon`
@@ -112,21 +133,21 @@ s("gm_piano")
 
 ## Remote Named Entries
 
-These are named sounds backed by explicit sample loads.
+These names are supported only when their backing sample pack is loaded.
 
 - `vox`
-  load:
+  Required load:
   ```js
   samples("https://raw.githubusercontent.com/felixroos/dough-samples/main/vcsl.json")
   ```
-  preview:
+  Example:
   ```js
   s("vox").gain(.7)
   ```
 
-## Runtime Pack References
+## Runtime Pack Aliases
 
-These are the runtime pack aliases currently configured by Strudel Studio.
+These are the pack references configured by Strudel Studio.
 
 - `dirt`
   `github:tidalcycles/dirt-samples`
@@ -136,3 +157,10 @@ These are the runtime pack aliases currently configured by Strudel Studio.
   `https://raw.githubusercontent.com/felixroos/dough-samples/main/piano.json`
 - `vcsl`
   `https://raw.githubusercontent.com/felixroos/dough-samples/main/vcsl.json`
+
+## Practical Guidance
+
+- For drum grooves, prefer supported drum banks plus drum tokens.
+- For pitched writing, prefer named instruments or GM sounds listed above.
+- For melody imports and rhythm seeds, keep generated sounds inside this whitelist unless the user explicitly requests otherwise.
+- If a sound is not listed here, do not claim it will work.

@@ -3,6 +3,15 @@ const body = (src: string, name: string) => {
   return hit?.[1]?.trim() ?? ""
 }
 
+const between = (src: string, start: string, end?: string) => {
+  const from = src.indexOf(start)
+  if (from === -1) return ""
+  const begin = from + start.length
+  const finish = end ? src.indexOf(end, begin) : src.length
+  const stop = finish === -1 ? src.length : finish
+  return src.slice(begin, stop).trim()
+}
+
 const pick = (src: string, rx: RegExp) => src.match(rx)?.[1]
 const strip = (src: string) => src.replace(/;\s*$/, "").trim()
 const words = (text: string) =>
@@ -36,10 +45,23 @@ const layout = (n: number) => ({
   y: 48 + Math.floor(n / 4) * 108,
 })
 const hidden = (card: { role: string; code: string }) => card.role === "placeholder" && card.code === `s("~").gain(0)`
+const trimBlock = (src: string) => src.replace(/\r\n/g, "\n").trim()
 
 export const parse = (src: string) => {
   const bpm = pick(src, /\bbpm\s*:\s*(\d+)/)?.trim() ?? "120"
   const div = pick(src, /\bbeats_per_cycle\s*:\s*(\d+)/)?.trim() ?? "4"
+  const title = pick(src, /\btitle\s*:\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/)?.trim()
+  const imports = trimBlock(between(src, "// @song_imports", "// @song_tracks"))
+  const metaBody = pick(src, /(?:let|const)\s+song_meta\s*=\s*\{([\s\S]*?)\n\}/)?.trim() ?? ""
+  const metaExtra = trimBlock(
+    metaBody
+      .split("\n")
+      .filter((line) => {
+        const text = line.trim()
+        return !/^title\s*:/.test(text) && !/^bpm\s*:/.test(text) && !/^beats_per_cycle\s*:/.test(text)
+      })
+      .join("\n"),
+  )
   const tracks = new Map(
     [...src.matchAll(/(?:let|const)\s+(track_([a-z0-9_]+)_([a-z0-9_]+))\s*=/gi)].map((item) => {
       const id = item[1]
@@ -92,6 +114,9 @@ export const parse = (src: string) => {
   return {
     bpm,
     div,
+    title,
+    metaExtra,
+    imports,
     sects: list.length ? list : sects,
   }
 }

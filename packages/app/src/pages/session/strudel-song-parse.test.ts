@@ -6,11 +6,13 @@ const song_meta = {
   title: "Test",
   bpm: 135,
   beats_per_cycle: 8,
+  key: "C minor",
 }
 
 setcps((song_meta.bpm / 60) / song_meta.beats_per_cycle)
 
 // @song_imports
+const lead_fx = (x) => x.room(.4)
 
 // @song_tracks
 let track_intro_drums = s("bd hh sd hh").bank("RolandTR808").gain(.7)
@@ -43,6 +45,9 @@ describe("strudel song parse", () => {
     const out = parse(src)
     expect(out.bpm).toBe("135")
     expect(out.div).toBe("8")
+    expect(out.title).toBe(`"Test"`)
+    expect(out.metaExtra).toContain(`key: "C minor",`)
+    expect(out.imports).toContain(`const lead_fx = (x) => x.room(.4)`)
     expect(out.sects.map((item) => item.id)).toEqual(["section_intro", "section_verse"])
     expect(out.sects.map((item) => item.len)).toEqual(["4", "8"])
   })

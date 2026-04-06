@@ -1,6 +1,5 @@
 import { createMemo, For, Match, Switch } from "solid-js"
 import { Button } from "@opencode-ai/ui/button"
-import { Logo } from "@opencode-ai/ui/logo"
 import { useLayout } from "@/context/layout"
 import { useNavigate } from "@solidjs/router"
 import { base64Encode } from "@opencode-ai/util/encode"
@@ -86,11 +85,15 @@ export default function Home() {
 
   return (
     <div class="mx-auto mt-55 w-full md:w-auto px-4">
-      <Logo class="md:w-xl opacity-12" />
+      <div class="mx-auto mb-6 max-w-full overflow-hidden text-center">
+        <div class="text-[3.5rem] font-semibold uppercase leading-none tracking-[-0.06em] text-text-strong/12 md:text-[5rem]">
+          Strudel Studio
+        </div>
+      </div>
       <Button
         size="large"
         variant="ghost"
-        class="mt-4 mx-auto text-14-regular text-text-weak"
+        class="mx-auto text-14-regular text-text-weak"
         onClick={() => dialog.show(() => <DialogSelectServer />)}
       >
         <div
@@ -154,7 +157,7 @@ export default function Home() {
             target="_blank"
             rel="noreferrer"
           >
-            OpenCode
+            Upstream OpenCode
           </a>
           <a
             class="rounded-md border border-border-weak-base px-2.5 py-1.5 text-text-strong hover:bg-background-base"

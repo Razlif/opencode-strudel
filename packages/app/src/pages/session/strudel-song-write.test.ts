@@ -56,10 +56,61 @@ describe("strudel song write", () => {
     const out = parse(write(state))
     expect(out.bpm).toBe("135")
     expect(out.div).toBe("8")
+    expect(out.title).toBe(`"Test"`)
     expect(out.sects.map((item) => item.id)).toEqual(["section_intro", "section_verse"])
     expect(out.sects.map((item) => item.len)).toEqual(["4", "8"])
     expect(out.sects[0]?.cards.map((item) => item.name)).toEqual(["RolandTR808", "gm_electric_bass_finger"])
     expect(out.sects[1]?.cards.map((item) => item.name)).toEqual(["vox"])
+  })
+
+  test("preserves meta extras and imports across parse/write round-trip", () => {
+    const src = `// Strudel Studio canonical song file
+// Keep marker comments and top-level names stable.
+
+// @song_meta
+const song_meta = {
+  title: "Round Trip",
+  bpm: 110,
+  beats_per_cycle: 4,
+  key: "D minor",
+  mood: "tense",
+}
+
+setcps((song_meta.bpm / 60) / song_meta.beats_per_cycle)
+
+// @song_imports
+const lead_fx = (x) => x.room(.4)
+
+// @song_tracks
+let track_intro_piano = note("d4").s("piano")
+
+// @song_sections
+let section_intro = stack(
+  track_intro_piano,
+)
+
+// @song_arrangement
+let final_song = arrange(
+  [4, section_intro],
+)
+
+final_song
+`
+
+    const parsed = parse(src)
+    const out = write({
+      bpm: parsed.bpm,
+      div: parsed.div,
+      titleLiteral: parsed.title,
+      metaExtra: parsed.metaExtra,
+      imports: parsed.imports,
+      sects: parsed.sects,
+    })
+
+    expect(out).toContain(`title: "Round Trip"`)
+    expect(out).toContain(`key: "D minor",`)
+    expect(out).toContain(`mood: "tense",`)
+    expect(out).toContain(`const lead_fx = (x) => x.room(.4)`)
   })
 
   test("deduplicates repeated names", () => {

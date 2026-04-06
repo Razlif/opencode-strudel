@@ -9,13 +9,14 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import { useFile } from "@/context/file"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLocal } from "@/context/local"
-import { usePrompt } from "@/context/prompt"
+import { type Prompt, usePrompt } from "@/context/prompt"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { type FollowupDraft, sendFollowupDraft } from "@/components/prompt-input/submit"
 import { showToast } from "@opencode-ai/ui/toast"
 import { bootstrap as bootstrapSong } from "@/pages/session/strudel-song-bootstrap"
 import { DialogImportMelody } from "@/pages/session/dialog-import-melody"
+import { DialogTapRhythm } from "@/pages/session/dialog-tap-rhythm"
 import { registerGm } from "@/pages/session/strudel-gm"
 import { blank, copyCard, copySect, make, type Card, type Sect } from "@/pages/session/strudel-song-edit"
 import { banks, ext, gm, named, packs } from "@/pages/session/strudel-runtime"
@@ -24,10 +25,12 @@ import { check } from "@/pages/session/strudel-song-validate"
 import { write as writeSong } from "@/pages/session/strudel-song-write"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { clearStrudelSessionContext, setStrudelSessionContext } from "@/pages/session/strudel-session-context"
+import { buildStrudelSessionSystem } from "@/pages/session/strudel-session-system"
 import { boot as songBoot, song as songPath } from "@/pages/session/strudel-song"
 import { state as songState } from "@/pages/session/strudel-song-state"
 import { hasExternalUpdate, needsHydrate } from "@/pages/session/strudel-song-sync"
 import { groups as supportGroups, probe, report } from "@/pages/session/strudel-support"
+import { buildTapRhythmPrompt, type TapRhythmCapture } from "@/pages/session/transcribe/tap-rhythm"
 
 type State = "idle" | "evaluating" | "needs preload" | "preloading" | "preloaded" | "playing" | "stopped" | "error"
 
@@ -238,6 +241,9 @@ export function StrudelBar(props: {
   const [code, setCode] = createSignal(demo)
   const [bpm, setBpm] = createSignal("120")
   const [div, setDiv] = createSignal("4")
+  const [titleLiteral, setTitleLiteral] = createSignal<string | undefined>()
+  const [metaExtra, setMetaExtra] = createSignal("")
+  const [importsBlock, setImportsBlock] = createSignal("")
   const [pick, setPick] = createSignal<(typeof demos)[number]["name"]>(demos[0].name)
   const [pre, setPre] = createSignal("")
   const [logs, setLogs] = createSignal<string[]>([])
@@ -335,6 +341,9 @@ export function StrudelBar(props: {
     const next = writeSong({
       bpm: String(rate()),
       div: String(beat()),
+      titleLiteral: titleLiteral(),
+      metaExtra: metaExtra(),
+      imports: importsBlock(),
       sects: sects(),
     })
     const hit = check(next)
@@ -476,6 +485,9 @@ export function StrudelBar(props: {
     const next = parse(src)
     setBpm(next.bpm)
     setDiv(next.div)
+    setTitleLiteral(next.title)
+    setMetaExtra(next.metaExtra)
+    setImportsBlock(next.imports)
     setSects(next.sects)
     setPart(next.sects[0]?.id ?? "")
     setOpenCard("")
@@ -1002,6 +1014,79 @@ export function StrudelBar(props: {
     setMsg(`Added ${name} to ${curr()?.name ?? "section"}.`)
     later()
   }
+  const sendTapRhythm = (seed: TapRhythmCapture, code: string) => {
+    const body = [
+      buildTapRhythmPrompt(seed),
+      "",
+      "Scaffold:",
+      "```js",
+      code,
+      "```",
+    ].join("\n")
+    const next: Prompt = [{ type: "text", content: body, start: 0, end: body.length }]
+    const cursor = body.length
+    const model = local.model.current()
+    const agent = local.agent.current()
+    const id = sid()
+    if (!id || !model || !agent) {
+      prompt.set(next, cursor)
+      setMsg("Tap rhythm prompt prepared in chat.")
+      showToast({
+        title: "Tap rhythm prompt ready",
+        description: "The groove-seed prompt was added to chat.",
+      })
+      return
+    }
+    const draft: FollowupDraft = {
+      sessionID: id,
+      sessionDirectory: sdk.directory,
+      prompt: next,
+      context: [],
+      agent: agent.name,
+      model: {
+        providerID: model.provider.id,
+        modelID: model.id,
+      },
+      variant: local.model.variant.current() ?? undefined,
+      system: buildStrudelSessionSystem(
+        id,
+        (sync.data.message[id] ?? []).some((item) => item.role === "user") === false,
+      ),
+    }
+    setMsg("Sending tap rhythm seed to agent...")
+    void sendFollowupDraft({
+      client: sdk.client,
+      globalSync,
+      sync,
+      draft,
+      optimisticBusy: sdk.directory === draft.sessionDirectory,
+    })
+      .then((ok) => {
+        if (ok === false) {
+          prompt.set(next, cursor)
+          setMsg("Tap rhythm prompt prepared in chat.")
+          showToast({
+            title: "Tap rhythm prompt ready",
+            description: "Auto-send was skipped. The groove-seed prompt was added to chat.",
+          })
+          return
+        }
+        setMsg("Tap rhythm seed sent to agent.")
+        showToast({
+          title: "Tap rhythm seed sent",
+          description: "The agent is expanding the groove seed in the canonical song.",
+        })
+      })
+      .catch(() => {
+        prompt.set(next, cursor)
+        setMsg("Tap rhythm send failed. Prompt prepared in chat.")
+        showToast({
+          variant: "error",
+          title: "Tap rhythm send failed",
+          description: "The groove-seed prompt was added to chat instead.",
+        })
+      })
+  }
   const drop = (card: Card) => {
     patch((item) => ({
       ...item,
@@ -1480,6 +1565,34 @@ ${remoteItem.preview}`, rate(), beat())
                   <div class="flex shrink-0 flex-wrap items-center gap-2">
                     <Button data-testid="strudel-section-play" size="small" variant="secondary" onClick={() => void playSect()}>
                       Play Section
+                    </Button>
+                    <Button
+                      data-testid="strudel-tap-rhythm"
+                      size="small"
+                      variant="secondary"
+                      onClick={() =>
+                        dialog.show(() => (
+                          <DialogTapRhythm
+                            bpm={rate()}
+                            div={beat()}
+                            onClose={() => dialog.close()}
+                            onInsert={(code) => {
+                              plantCode("Tap Rhythm", "bank", code)
+                              dialog.close()
+                              showToast({
+                                title: "Tap rhythm inserted",
+                                description: "The tapped scaffold was added as a new track.",
+                              })
+                            }}
+                            onSendToAI={(seed, code) => {
+                              dialog.close()
+                              sendTapRhythm(seed, code)
+                            }}
+                          />
+                        ))
+                      }
+                    >
+                      Tap Rhythm
                     </Button>
                     <Button
                       data-testid="strudel-record-melody"

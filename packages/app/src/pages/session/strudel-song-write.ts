@@ -4,6 +4,8 @@ const clean = (text: string) =>
     .replace(/\r\n/g, "\n")
     .replace(/;\s*$/, "")
 
+const block = (text?: string) => text?.replace(/\r\n/g, "\n").trim() ?? ""
+
 const snake = (text: string) =>
   text
     .toLowerCase()
@@ -39,10 +41,15 @@ export const write = (state: {
   div: string
   sects: Sect[]
   title?: string
+  titleLiteral?: string
+  metaExtra?: string
+  imports?: string
 }) => {
   const bpm = Number(state.bpm) > 0 ? Number(state.bpm) : 120
   const div = Number(state.div) > 0 ? Number(state.div) : 4
-  const title = state.title ?? ""
+  const title = state.titleLiteral?.trim() || JSON.stringify(state.title ?? "")
+  const metaExtra = block(state.metaExtra)
+  const imports = block(state.imports)
   const sections: string[] = []
   const tracks = state.sects.flatMap((sect) => {
     const sid = uniq(sections, snake(sect.name))
@@ -90,15 +97,15 @@ export const write = (state: {
 
 // @song_meta
 const song_meta = {
-  title: ${JSON.stringify(title)},
+  title: ${title},
   bpm: ${bpm},
   beats_per_cycle: ${div},
-}
+${metaExtra ? `${metaExtra}\n` : ""}}
 
 setcps((song_meta.bpm / 60) / song_meta.beats_per_cycle)
 
 // @song_imports
-// Shared setup only.
+${imports || "// Shared setup only."}
 
 // @song_tracks
 // Track naming:

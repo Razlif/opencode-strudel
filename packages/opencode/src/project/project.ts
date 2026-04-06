@@ -233,18 +233,28 @@ export namespace Project {
 
     if (Flag.OPENCODE_EXPERIMENTAL_ICON_DISCOVERY) discover(existing)
 
+    const activeSandboxes = existing.sandboxes.filter((x) => existsSync(x))
+    const nextSandboxes = [
+      ...activeSandboxes,
+      ...(data.sandbox !== data.worktree && !activeSandboxes.includes(data.sandbox) ? [data.sandbox] : []),
+    ].filter((x) => existsSync(x))
+    const changed =
+      !row ||
+      existing.worktree !== data.worktree ||
+      existing.vcs !== data.vcs ||
+      nextSandboxes.length !== activeSandboxes.length ||
+      nextSandboxes.some((item, index) => item !== activeSandboxes[index])
+
     const result: Info = {
       ...existing,
       worktree: data.worktree,
       vcs: data.vcs as Info["vcs"],
       time: {
         ...existing.time,
-        updated: Date.now(),
+        updated: changed ? Date.now() : existing.time.updated,
       },
+      sandboxes: nextSandboxes,
     }
-    if (data.sandbox !== result.worktree && !result.sandboxes.includes(data.sandbox))
-      result.sandboxes.push(data.sandbox)
-    result.sandboxes = result.sandboxes.filter((x) => existsSync(x))
     const insert = {
       id: result.id,
       worktree: result.worktree,

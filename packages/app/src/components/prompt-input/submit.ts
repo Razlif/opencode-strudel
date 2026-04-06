@@ -19,9 +19,8 @@ import { Worktree as WorktreeState } from "@/utils/worktree"
 import { buildRequestParts } from "./build-request-parts"
 import { setCursorPosition } from "./editor-dom"
 import { formatServerError } from "@/utils/server-errors"
-import { song as songPath } from "@/pages/session/strudel-song"
-import { getStrudelSessionContext } from "@/pages/session/strudel-session-context"
 import { resolveStrudelWorkspaceRoot } from "@/pages/strudel-workspace-root"
+import { buildStrudelSessionSystem } from "@/pages/session/strudel-session-system"
 
 type PendingPrompt = {
   abort: AbortController
@@ -224,33 +223,6 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     return language.t("common.requestFailed")
   }
 
-  const system = (sessionID: string, first: boolean) => {
-    const value = getStrudelSessionContext(sessionID)
-    const lines = [
-      "Current Strudel session context:",
-      "",
-      `- session_id: ${sessionID}`,
-      `- canonical_song_path: ${value?.canonical_song_path ?? songPath(sessionID)}`,
-      "- When the user refers to the current song, section, chorus, verse, tracks, cards, or project music state, they are referring to this canonical song file.",
-      "- Read and edit that file directly instead of guessing the active song by scanning the repo.",
-    ]
-    if (value?.focused_section) lines.push(`- focused_section: ${value.focused_section}`)
-    if (value?.focused_card) lines.push(`- focused_card: ${value.focused_card}`)
-    if (value?.ui_surface) lines.push(`- ui_surface: ${value.ui_surface}`)
-    if (value?.playback_state) lines.push(`- playback_state: ${value.playback_state}`)
-    if (value?.status) lines.push(`- ui_status: ${value.status}`)
-    if (value?.status_message) lines.push(`- ui_status_message: ${value.status_message}`)
-    if (first) {
-      lines.push("")
-      lines.push("First-turn Strudel instructions:")
-      lines.push("- Read the workspace `AGENTS.md` file before planning or editing.")
-      lines.push("- Read the canonical song file before making music claims or edits.")
-      lines.push("- Read relevant workspace examples, docs, or sample references before writing music.")
-      lines.push("- Stay inside the current canonical song file.")
-    }
-    return lines.join("\n")
-  }
-
   const root = async (dir: string) =>
     resolveStrudelWorkspaceRoot(dir, async (child) => {
       const nodes =
@@ -449,7 +421,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       agent,
       model,
       variant,
-      system: system(session.id, first),
+      system: buildStrudelSessionSystem(session.id, first),
     }
 
     const clearInput = () => {

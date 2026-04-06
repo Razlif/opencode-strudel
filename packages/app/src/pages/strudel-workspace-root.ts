@@ -34,7 +34,7 @@ export const resolveStrudelWorkspaceRoot = async (
   if (!current) return input
   if (isStrudelWorkspaceRoot(await list(current))) return current
   const name = base(current).toLowerCase()
-  if (!["songs", "examples", "samples", "resources"].includes(name)) return current
+  if (!["songs", "samples", "resources"].includes(name)) return current
   const up = parent(current)
   if (!up || up === current) return current
   if (isStrudelWorkspaceRoot(await list(up))) return up
